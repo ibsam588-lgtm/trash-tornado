@@ -49,15 +49,26 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      - name: Validate release secrets
+      - name: Check release secrets
+        id: release_secrets
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64"
-          test -n "$ANDROID_KEYSTORE_PASSWORD"
-          test -n "$ANDROID_KEY_PASSWORD"
-          test -n "$ANDROID_KEY_ALIAS"
-          test -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"
+          missing=()
+          test -n "$ANDROID_KEYSTORE_BASE64" || missing+=("ANDROID_KEYSTORE_BASE64")
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || missing+=("ANDROID_KEYSTORE_PASSWORD")
+          test -n "$ANDROID_KEY_PASSWORD" || missing+=("ANDROID_KEY_PASSWORD")
+          test -n "$ANDROID_KEY_ALIAS" || missing+=("ANDROID_KEY_ALIAS")
+          test -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" || missing+=("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            printf 'Missing Play upload secrets: %s\n' "${missing[*]}"
+            echo "::notice title=Play upload skipped::Add the Play upload secrets to enable automatic internal-track deployment."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Restore Android upload key
+        if: steps.release_secrets.outputs.ready == 'true'
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
           cat > android/key.properties <<EOF
@@ -68,6 +79,7 @@ jobs:
           EOF
 
       - name: Restore Google Play service account
+        if: steps.release_secrets.outputs.ready == 'true'
         run: |
           mkdir -p fastlane/secrets
           printf "%s" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > fastlane/secrets/play-service-account.json
@@ -90,4 +102,5 @@ jobs:
         run: flutter build appbundle --release --build-number ${{ github.run_number }}
 
       - name: Upload to Play Store internal track
+        if: steps.release_secrets.outputs.ready == 'true'
         run: bundle exec fastlane android internal
