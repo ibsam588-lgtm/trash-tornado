@@ -1,0 +1,1 @@
+Initial playable Trash Tornado release with swipe sorting, hazards, maps, skins, shop, upgrades, rewards, and Android app bundle support.

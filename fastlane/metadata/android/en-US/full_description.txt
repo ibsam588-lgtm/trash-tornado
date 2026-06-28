@@ -1,0 +1,15 @@
+Trash Tornado is a bright arcade recycling game built around fast sorting, clean cities, and collectible tornado skins.
+
+Swipe plastic, metal, paper, glass, and food waste into the correct bins before the litter storm overwhelms the map. Keep toxic barrels away from your tornado, chain clean combos, earn coins and gems, upgrade eco tools, and unlock new cleanup locations across parks, beaches, city streets, industrial zones, and ocean depths.
+
+Features:
+- Fast swipe-and-drag sorting gameplay
+- Five recyclable waste categories
+- Toxic barrel hazards to avoid
+- Classic, ocean, fire, robot, galaxy, and toxic tornado skins
+- City, park, beach, industrial, and ocean maps
+- Power-ups, upgrades, daily rewards, coins, gems, and energy
+- Music, sound effects, vibration feedback, and interactive bin sorting
+- Family-friendly eco arcade theme
+
+Keep the cleanup streak alive and turn every map into a cleaner place.

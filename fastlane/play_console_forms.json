@@ -1,0 +1,60 @@
+{
+  "appDetails": {
+    "appName": "Trash Tornado",
+    "defaultLanguage": "English (United States)",
+    "appOrGame": "Game",
+    "category": "Arcade",
+    "freeOrPaid": "Free",
+    "packageName": "com.ibsam.trash_tornado"
+  },
+  "storeListing": {
+    "title": "Trash Tornado",
+    "shortDescription": "Swipe trash into the right bins, dodge toxic barrels, and clean the world.",
+    "privacyPolicyUrl": "Set PLAY_PRIVACY_URL in GitHub repository variables before production review.",
+    "graphicsPath": "fastlane/metadata/android/en-US/images"
+  },
+  "appAccess": {
+    "restrictedAccess": false,
+    "instructions": "No sign-in, membership, location gate, or special access is required."
+  },
+  "ads": {
+    "containsAds": false,
+    "notes": "Do not enable ads without updating this answer and the privacy policy."
+  },
+  "contentRating": {
+    "category": "Game",
+    "violence": "None",
+    "fear": "None",
+    "sexualContent": "None",
+    "language": "None",
+    "controlledSubstances": "None",
+    "gambling": "None",
+    "userGeneratedContent": "None",
+    "onlineInteractions": "None",
+    "locationSharing": "None"
+  },
+  "targetAudience": {
+    "ageGroups": ["13-15", "16-17", "18+"],
+    "designedForFamilies": false,
+    "notes": "The theme is family-friendly, but this conservative setup avoids the extra Designed for Families review path until a child-safety review is completed."
+  },
+  "dataSafety": {
+    "dataCollected": false,
+    "dataShared": false,
+    "dataEncryptedInTransit": "Not applicable. The current app does not transmit user data.",
+    "dataDeletionRequest": "Not applicable. The current app does not create accounts or collect server-side user data.",
+    "dataTypes": [],
+    "notes": "Gameplay progress is stored locally on the device. Update this form before adding analytics, crash reporting, ads, sign-in, cloud saves, or purchases."
+  },
+  "financialFeatures": {
+    "containsPaidFeatures": false,
+    "notes": "The current build does not wire real-money purchases. Change this before enabling in-app purchases."
+  },
+  "health": {
+    "healthApp": false
+  },
+  "permissions": {
+    "sensitivePermissions": [],
+    "notes": "The app currently does not request location, camera, contacts, microphone, or storage permissions."
+  }
+}

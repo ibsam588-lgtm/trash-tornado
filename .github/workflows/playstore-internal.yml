@@ -1,0 +1,93 @@
+name: Play Store Internal Release
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-store-internal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  internal-release:
+    name: Build, sign, and upload internal release
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_PACKAGE_NAME: com.ibsam.trash_tornado
+      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+      PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
+      PLAY_PRIVACY_URL: ${{ vars.PLAY_PRIVACY_URL }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Validate release secrets
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"
+
+      - name: Restore Android upload key
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=app/upload-keystore.jks
+          EOF
+
+      - name: Restore Google Play service account
+        run: |
+          mkdir -p fastlane/secrets
+          printf "%s" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > fastlane/secrets/play-service-account.json
+          echo "GOOGLE_PLAY_JSON_KEY_FILE=fastlane/secrets/play-service-account.json" >> "$GITHUB_ENV"
+
+      - name: Apply Play Store privacy URL
+        if: env.PLAY_PRIVACY_URL != ''
+        run: printf "%s\n" "$PLAY_PRIVACY_URL" > fastlane/metadata/android/en-US/privacy_url.txt
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build app bundle
+        run: flutter build appbundle --release --build-number ${{ github.run_number }}
+
+      - name: Upload to Play Store internal track
+        run: bundle exec fastlane android internal

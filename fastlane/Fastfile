@@ -1,0 +1,53 @@
+default_platform(:android)
+
+def android_package_name
+  ENV["ANDROID_PACKAGE_NAME"] || "com.ibsam.trash_tornado"
+end
+
+def play_credentials
+  key_file = ENV["GOOGLE_PLAY_JSON_KEY_FILE"]
+  return { json_key: key_file } if key_file && !key_file.empty?
+
+  key_data = ENV["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"]
+  return { json_key_data: key_data } if key_data && !key_data.empty?
+
+  UI.user_error!("Missing GOOGLE_PLAY_JSON_KEY_FILE or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+end
+
+platform :android do
+  desc "Validate Play Store listing metadata without uploading a release"
+  lane :validate_metadata do
+    supply(
+      play_credentials.merge(
+        package_name: android_package_name,
+        metadata_path: "fastlane/metadata/android",
+        skip_upload_apk: true,
+        skip_upload_aab: true,
+        skip_upload_metadata: false,
+        skip_upload_images: false,
+        skip_upload_screenshots: false,
+        validate_only: true
+      )
+    )
+  end
+
+  desc "Upload the release App Bundle and listing assets to the Play internal track"
+  lane :internal do
+    aab_path = ENV["ANDROID_AAB_PATH"] || "build/app/outputs/bundle/release/app-release.aab"
+    track = ENV["PLAY_TRACK"] || "internal"
+    release_status = ENV["PLAY_RELEASE_STATUS"] || "completed"
+
+    supply(
+      play_credentials.merge(
+        package_name: android_package_name,
+        aab: aab_path,
+        track: track,
+        release_status: release_status,
+        metadata_path: "fastlane/metadata/android",
+        skip_upload_metadata: false,
+        skip_upload_images: false,
+        skip_upload_screenshots: false
+      )
+    )
+  end
+end

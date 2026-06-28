@@ -1,0 +1,4 @@
+storePassword=change-me
+keyPassword=change-me
+keyAlias=trash-tornado-upload
+storeFile=app/upload-keystore.jks

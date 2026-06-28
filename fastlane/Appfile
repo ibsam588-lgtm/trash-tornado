@@ -1,0 +1,3 @@
+package_name(ENV["ANDROID_PACKAGE_NAME"] || "com.ibsam.trash_tornado")
+
+json_key_file(ENV["GOOGLE_PLAY_JSON_KEY_FILE"]) if ENV["GOOGLE_PLAY_JSON_KEY_FILE"]
