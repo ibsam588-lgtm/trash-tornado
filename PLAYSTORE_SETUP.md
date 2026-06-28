@@ -36,7 +36,7 @@ Add these repository secrets before running `Play Store Internal Release`:
 
 Add these repository variables:
 
-- `PLAY_PRIVACY_URL`: public URL for the hosted privacy policy
+- `PLAY_PRIVACY_URL`: public URL for the hosted privacy policy, currently `https://corsairlabs.com/trash-tornado-privacy-policy`
 - `PLAY_TRACK`: optional, defaults to `internal`
 - `PLAY_RELEASE_STATUS`: optional, defaults to `completed`
 
@@ -67,7 +67,7 @@ docs/play_console_forms.md
 fastlane/play_console_forms.json
 ```
 
-Replace `privacy_url.txt` or set `PLAY_PRIVACY_URL` before production submission.
+The metadata is configured for `https://corsairlabs.com/trash-tornado-privacy-policy`. Publish the Corsair Labs page before production submission.
 
 ## 5. Build locally
 

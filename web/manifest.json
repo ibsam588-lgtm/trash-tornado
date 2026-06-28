@@ -1,11 +1,11 @@
 {
-    "name": "trash_tornado",
-    "short_name": "trash_tornado",
+    "name": "Trash Tornado",
+    "short_name": "Trash Tornado",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#06213d",
+    "theme_color": "#0b8dff",
+    "description": "Swipe trash into the right bins, dodge toxic barrels, and clean the world.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

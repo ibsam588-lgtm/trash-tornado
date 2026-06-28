@@ -1,6 +1,6 @@
 # Play Console Forms
 
-Use these answers for the first internal release of Trash Tornado. Update them before production if ads, analytics, crash reporting, accounts, cloud saves, purchases, or third-party SDKs are added.
+Use these answers for the first internal release of Trash Tornado. The Play Console app is configured as ad-supported with Google Mobile Ads-style data disclosures.
 
 ## App Details
 
@@ -16,12 +16,13 @@ Use these answers for the first internal release of Trash Tornado. Update them b
 - Short description: Swipe trash into the right bins, dodge toxic barrels, and clean the world.
 - Full description: Use `fastlane/metadata/android/en-US/full_description.txt`.
 - Feature graphic and screenshots: Use `fastlane/metadata/android/en-US/images/`.
-- Privacy policy: Host `docs/privacy_policy.md`, then set the GitHub repository variable `PLAY_PRIVACY_URL` to that public URL.
+- Privacy policy: https://corsairlabs.com/trash-tornado-privacy-policy
+- Support email: labscorsair@gmail.com
 
 ## App Content
 
 - App access: All functionality is available without sign-in or special credentials.
-- Ads: No.
+- Ads: Yes.
 - Contains paid features or in-app purchases: No for the current build.
 - News app: No.
 - Government app: No.
@@ -36,10 +37,14 @@ Use these answers for the first internal release of Trash Tornado. Update them b
 
 ## Data Safety
 
-- Data collected: No.
-- Data shared: No.
-- Data encrypted in transit: Not applicable because the current app does not transmit user data.
-- Data deletion: Not applicable because the current app does not create accounts or store server-side user data.
+- Data collected: Approximate location, App interactions, Diagnostics, Device or other IDs.
+- Data shared: Approximate location, App interactions, Diagnostics, Device or other IDs.
+- Data encrypted in transit: Yes.
+- Account creation: The app does not allow users to create an account.
+- Outside account login: No.
+- Data deletion request URL: https://corsairlabs.com/data-deletion
+- Data handling for each selected type: Collected and shared, not processed ephemerally, required.
+- Collection and sharing purposes: Analytics, Advertising or marketing, Fraud prevention, security, and compliance.
 - Local data: Gameplay progress, coins, gems, selected skins, upgrades, and unlocked maps are stored on the device only.
 
 ## Content Rating
@@ -56,6 +61,7 @@ Use these answers for the first internal release of Trash Tornado. Update them b
 
 ## Required Before Production
 
-- Replace the placeholder privacy URL with a hosted policy.
-- Add a real developer support email in Play Console.
-- Revisit app content answers if purchases, ads, analytics, crash reporting, or third-party SDKs are enabled.
+- Publish the Corsair Labs landing page and privacy policy before sending for review.
+- Upload the prepared store graphics and screenshots before submitting the store listing.
+- Use labscorsair@gmail.com as the Play Console support email.
+- Revisit app content answers if purchases, analytics, crash reporting, account features, or additional third-party SDKs are enabled.

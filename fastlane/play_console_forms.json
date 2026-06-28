@@ -10,7 +10,8 @@
   "storeListing": {
     "title": "Trash Tornado",
     "shortDescription": "Swipe trash into the right bins, dodge toxic barrels, and clean the world.",
-    "privacyPolicyUrl": "Set PLAY_PRIVACY_URL in GitHub repository variables before production review.",
+    "privacyPolicyUrl": "https://corsairlabs.com/trash-tornado-privacy-policy",
+    "supportEmail": "labscorsair@gmail.com",
     "graphicsPath": "fastlane/metadata/android/en-US/images"
   },
   "appAccess": {
@@ -18,8 +19,8 @@
     "instructions": "No sign-in, membership, location gate, or special access is required."
   },
   "ads": {
-    "containsAds": false,
-    "notes": "Do not enable ads without updating this answer and the privacy policy."
+    "containsAds": true,
+    "notes": "Declared Yes in Play Console."
   },
   "contentRating": {
     "category": "Game",
@@ -39,12 +40,20 @@
     "notes": "The theme is family-friendly, but this conservative setup avoids the extra Designed for Families review path until a child-safety review is completed."
   },
   "dataSafety": {
-    "dataCollected": false,
-    "dataShared": false,
-    "dataEncryptedInTransit": "Not applicable. The current app does not transmit user data.",
-    "dataDeletionRequest": "Not applicable. The current app does not create accounts or collect server-side user data.",
-    "dataTypes": [],
-    "notes": "Gameplay progress is stored locally on the device. Update this form before adding analytics, crash reporting, ads, sign-in, cloud saves, or purchases."
+    "dataCollected": ["Approximate location", "App interactions", "Diagnostics", "Device or other IDs"],
+    "dataShared": ["Approximate location", "App interactions", "Diagnostics", "Device or other IDs"],
+    "dataEncryptedInTransit": true,
+    "accountCreation": "The app does not allow users to create an account.",
+    "outsideAccountLogin": false,
+    "dataDeletionRequestUrl": "https://corsairlabs.com/data-deletion",
+    "dataHandling": {
+      "collected": true,
+      "shared": true,
+      "processedEphemerally": false,
+      "required": true,
+      "purposes": ["Analytics", "Advertising or marketing", "Fraud prevention, security, and compliance"]
+    },
+    "notes": "Configured in Play Console for Google Mobile Ads-style data disclosures. Local gameplay progress remains on-device."
   },
   "financialFeatures": {
     "containsPaidFeatures": false,

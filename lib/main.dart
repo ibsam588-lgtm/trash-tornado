@@ -8,9 +8,9 @@ import 'package:flutter/services.dart';
 class GameArt {
   const GameArt._();
 
-  static const String homeBackground = 'assets/images/mockup_home_bg.png';
+  static const String homeBackground = 'assets/images/mockup_home_clean_bg.png';
   static const String gameplayBackground =
-      'assets/images/mockup_gameplay_bg.png';
+      'assets/images/mockup_home_clean_bg.png';
   static const String worldMapBackground =
       'assets/images/mockup_world_map_bg.png';
   static const String levelCompleteBackground =
@@ -162,6 +162,7 @@ enum GameView {
   skins,
   settings,
   modes,
+  tutorial,
 }
 
 enum WasteType { plastic, metal, paper, glass, food, toxic }
@@ -619,6 +620,13 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   DateTime? _lastTick;
   String? _activeMusicAsset;
   GameView _view = GameView.menu;
+  WasteItem? _tutorialItem;
+  Size _tutorialSize = Size.zero;
+  BinType? _tutorialHoverBin;
+  BinType? _tutorialSuccessBin;
+  double _tutorialSuccessPulse = 0;
+  int _tutorialStep = 0;
+  bool _tutorialSeen = false;
   Size _playSize = Size.zero;
   int _nextItemId = 1;
   int _selectedSkin = 0;
@@ -1303,11 +1311,193 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     _syncMusic();
   }
 
+  void _startTutorial() {
+    _playUiSfx(GameArt.sfxStart, volume: 0.52);
+    _hapticMedium();
+    setState(() {
+      _view = GameView.tutorial;
+      _paused = false;
+      _tutorialStep = 0;
+      _tutorialItem = null;
+      _tutorialSize = Size.zero;
+      _tutorialHoverBin = null;
+      _tutorialSuccessBin = null;
+      _tutorialSuccessPulse = 0;
+      _bursts.clear();
+    });
+    _syncMusic();
+  }
+
+  WasteType get _tutorialWasteType {
+    return switch (_tutorialStep) {
+      0 => WasteType.plastic,
+      1 => WasteType.paper,
+      _ => WasteType.toxic,
+    };
+  }
+
+  String get _tutorialTitle {
+    return switch (_tutorialStep) {
+      0 => 'Drag to recycle',
+      1 => 'Match the bin',
+      _ => 'Avoid toxic barrels',
+    };
+  }
+
+  String get _tutorialCaption {
+    return switch (_tutorialStep) {
+      0 => 'Move the blue bottle into the recycle bin.',
+      1 => 'Paper goes into the yellow paper bin.',
+      _ => 'Toxic barrels hurt. Leave them alone during cleanup.',
+    };
+  }
+
+  void _ensureTutorialItem(Size size) {
+    if (size == Size.zero) {
+      return;
+    }
+    if (_tutorialItem != null && _tutorialSize == size) {
+      return;
+    }
+    _tutorialSize = size;
+    final WasteType type = _tutorialWasteType;
+    _tutorialItem = WasteItem(
+      id: -100 - _tutorialStep,
+      type: type,
+      asset: _spriteOptions(type).first,
+      position: Offset(size.width * 0.5, size.height * 0.27),
+      velocity: Offset.zero,
+      size: type == WasteType.toxic ? 84 : 76,
+      spin: type == WasteType.paper ? 0.16 : -0.18,
+    );
+    _tutorialHoverBin = null;
+    _tutorialSuccessBin = null;
+    _tutorialSuccessPulse = 0;
+  }
+
+  void _resetTutorialItem() {
+    final Size size = _tutorialSize;
+    _tutorialItem = null;
+    if (size != Size.zero) {
+      _ensureTutorialItem(size);
+    }
+  }
+
+  BinType? _tutorialBinForPosition(Offset position) {
+    if (_tutorialSize == Size.zero) {
+      return null;
+    }
+    final Map<BinType, Rect> rects = _binRects(_tutorialSize);
+    for (final MapEntry<BinType, Rect> entry in rects.entries) {
+      if (entry.value.inflate(12).contains(position)) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  void _startTutorialDrag() {
+    final WasteItem? item = _tutorialItem;
+    if (item == null) {
+      return;
+    }
+    if (item.type == WasteType.toxic) {
+      _playSfx(GameArt.sfxBarrel, volume: 0.42);
+      _hapticHeavy();
+      setState(() {
+        _bursts.add(
+          SortBurst(
+            position: item.position,
+            label: 'AVOID',
+            color: const Color(0xffff3b4f),
+          ),
+        );
+      });
+      return;
+    }
+    _playUiSfx(GameArt.sfxTap, volume: 0.34);
+    _hapticSelection();
+    setState(() {
+      item.held = true;
+      item.trail.clear();
+      item.trail.add(item.position);
+      _tutorialHoverBin = _tutorialBinForPosition(item.position);
+    });
+  }
+
+  void _dragTutorialItem(DragUpdateDetails details) {
+    final WasteItem? item = _tutorialItem;
+    if (item == null || item.type == WasteType.toxic) {
+      return;
+    }
+    setState(() {
+      _rememberTrailPoint(item);
+      item.position += details.delta;
+      _tutorialHoverBin = _tutorialBinForPosition(item.position);
+    });
+  }
+
+  void _releaseTutorialItem(DragEndDetails details) {
+    final WasteItem? item = _tutorialItem;
+    if (item == null || item.type == WasteType.toxic) {
+      return;
+    }
+    final BinType? target = _tutorialBinForPosition(item.position);
+    setState(() {
+      item.held = false;
+      if (target == item.type.bin) {
+        _playSfx(GameArt.sfxSort, volume: 0.68);
+        _hapticLight();
+        _tutorialSuccessBin = target;
+        _tutorialSuccessPulse = 1;
+        _bursts.add(
+          SortBurst(
+            position: item.position,
+            label: 'GREAT',
+            color: const Color(0xffbaff3d),
+          ),
+        );
+        _tutorialStep = math.min(2, _tutorialStep + 1);
+        _tutorialItem = null;
+      } else {
+        _playSfx(GameArt.sfxMiss, volume: 0.45);
+        _hapticSelection();
+        _bursts.add(
+          SortBurst(
+            position: item.position,
+            label: target == null ? 'DRAG' : 'TRY AGAIN',
+            color: const Color(0xffffd33d),
+          ),
+        );
+        _resetTutorialItem();
+      }
+      _tutorialHoverBin = null;
+    });
+  }
+
+  void _finishTutorial({bool startRun = true}) {
+    setState(() {
+      _tutorialSeen = true;
+      _tutorialItem = null;
+      _tutorialHoverBin = null;
+      _tutorialSuccessBin = null;
+      _tutorialSuccessPulse = 0;
+      _bursts.clear();
+    });
+    if (startRun) {
+      _startRun();
+    } else {
+      _showView(GameView.menu);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (_view) {
       case GameView.game:
         return _buildGameScreen();
+      case GameView.tutorial:
+        return _buildTutorialScreen();
       case GameView.complete:
         return _buildLevelComplete();
       case GameView.map:
@@ -1373,11 +1563,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                           child: Stack(
                             fit: StackFit.expand,
                             children: <Widget>[
-                              _sceneBackground(
-                                GameArt.homeBackground,
-                                alignment: Alignment.topCenter,
-                                scrim: 0.04,
-                              ),
+                              _cleanHomeBackdrop(),
                               Positioned.fill(
                                 child: IgnorePointer(
                                   child: AnimatedBuilder(
@@ -1559,7 +1745,24 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                                     icon: Icons.play_arrow_rounded,
                                     color: const Color(0xffffc328),
                                     foreground: const Color(0xff241300),
-                                    onPressed: () => _startRun(),
+                                    onPressed: () => _tutorialSeen
+                                        ? _startRun()
+                                        : _startTutorial(),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 118,
+                                right: 118,
+                                bottom: 92,
+                                child: SizedBox(
+                                  height: 46,
+                                  child: ArcadeButton(
+                                    label: 'Tutorial',
+                                    icon: Icons.school_rounded,
+                                    compact: true,
+                                    color: const Color(0xff24b8ff),
+                                    onPressed: _startTutorial,
                                   ),
                                 ),
                               ),
@@ -1602,6 +1805,14 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     );
   }
 
+  Widget _cleanHomeBackdrop() {
+    return _sceneBackground(
+      GameArt.homeBackground,
+      alignment: Alignment.topCenter,
+      scrim: 0.02,
+    );
+  }
+
   Widget _selectedSkinSprite({required double size, double opacity = 1}) {
     final TornadoSkin skin = _skins[_selectedSkin];
     return Opacity(
@@ -1640,6 +1851,228 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTutorialScreen() {
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final Size size = Size(constraints.maxWidth, constraints.maxHeight);
+          _ensureTutorialItem(size);
+          final WasteItem? item = _tutorialItem;
+          final Map<BinType, Rect> binRects = _binRects(size);
+          final BinType? activeBin =
+              item == null || item.type == WasteType.toxic
+              ? null
+              : item.type.bin;
+          final Offset? target = activeBin == null
+              ? null
+              : binRects[activeBin]?.center;
+          final bool hazardWarning = item?.type == WasteType.toxic;
+          return Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              _sceneBackground(
+                GameArt.gameplayBackground,
+                alignment: Alignment.topCenter,
+                scrim: 0.08,
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _ambientController,
+                    builder: (BuildContext context, _) {
+                      return CustomPaint(
+                        painter: TutorialGuidePainter(
+                          item: item,
+                          target: target,
+                          progress: _ambientController.value,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _ambientController,
+                    builder: (BuildContext context, _) {
+                      return CustomPaint(
+                        painter: GameplayEffectsPainter(
+                          items: item == null
+                              ? const <WasteItem>[]
+                              : <WasteItem>[item],
+                          binRects: binRects,
+                          activeBin: activeBin,
+                          hoverBin: _tutorialHoverBin,
+                          successBin: _tutorialSuccessBin,
+                          successPulse: _tutorialSuccessPulse,
+                          hazardWarning: hazardWarning,
+                          time: _ambientController.value * 10,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              if (item != null)
+                Positioned(
+                  left: item.position.dx - item.size * 0.6,
+                  top: item.position.dy - item.size * 0.6,
+                  child: GestureDetector(
+                    onPanStart: (_) => _startTutorialDrag(),
+                    onPanUpdate: _dragTutorialItem,
+                    onPanEnd: _releaseTutorialItem,
+                    onTap: _startTutorialDrag,
+                    child: WasteToken(item: item),
+                  ),
+                ),
+              if (item != null && item.type == WasteType.toxic)
+                Positioned(
+                  left: (item.position.dx - 42).clamp(8, size.width - 92),
+                  top: (item.position.dy - 72).clamp(58, size.height - 180),
+                  child: _warningBadge('AVOID'),
+                ),
+              for (final SortBurst burst in _bursts)
+                Positioned(
+                  left: (burst.position.dx - 55)
+                      .clamp(8, size.width - 118)
+                      .toDouble(),
+                  top: (burst.position.dy - 34)
+                      .clamp(48, size.height - 150)
+                      .toDouble(),
+                  child: _floatingBurst(burst),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: BinDock(
+                  rects: binRects,
+                  activeBin: activeBin,
+                  hoverBin: _tutorialHoverBin,
+                  successBin: _tutorialSuccessBin,
+                  successPulse: _tutorialSuccessPulse,
+                  hazardWarning: hazardWarning,
+                  time: _ambientController.value * 10,
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          _roundIcon(
+                            icon: Icons.arrow_back_rounded,
+                            onTap: () => _finishTutorial(startRun: false),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _hudPill(
+                              icon: Icons.school_rounded,
+                              label:
+                                  'Tutorial ${math.min(3, _tutorialStep + 1)}/3',
+                              color: const Color(0xff36d6ff),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _roundIcon(
+                            icon: Icons.skip_next_rounded,
+                            onTap: () => _finishTutorial(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _tutorialCard(),
+                      const Spacer(),
+                      if (_tutorialStep >= 2)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(44, 0, 44, 120),
+                          child: ArcadeButton(
+                            label: 'Start Run',
+                            icon: Icons.play_arrow_rounded,
+                            color: const Color(0xffbaff3d),
+                            foreground: const Color(0xff183600),
+                            onPressed: () => _finishTutorial(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tutorialCard() {
+    final WasteType type = _tutorialWasteType;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xff0b4e93), Color(0xff062340)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: <Color>[
+                  type.color.withValues(alpha: 0.95),
+                  Color.lerp(type.color, Colors.black, 0.28)!,
+                ],
+              ),
+              border: Border.all(color: Colors.white70, width: 1.2),
+            ),
+            child: Icon(type.icon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(_tutorialTitle, style: _titleStyle(19)),
+                const SizedBox(height: 4),
+                Text(
+                  _tutorialCaption,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5002,6 +5435,115 @@ class GameplayEffectsPainter extends CustomPainter {
         oldDelegate.successPulse != successPulse ||
         oldDelegate.hazardWarning != hazardWarning ||
         oldDelegate.time != time;
+  }
+}
+
+class TutorialGuidePainter extends CustomPainter {
+  TutorialGuidePainter({
+    required this.item,
+    required this.target,
+    required this.progress,
+  });
+
+  final WasteItem? item;
+  final Offset? target;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final WasteItem? current = item;
+    if (current == null) {
+      return;
+    }
+    if (current.type == WasteType.toxic) {
+      final double pulse = 0.5 + math.sin(progress * math.pi * 2) * 0.5;
+      final Paint danger = Paint()
+        ..color = const Color(0xffff3b4f).withValues(alpha: 0.26 + pulse * 0.22)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4 + pulse * 3;
+      canvas.drawCircle(
+        current.position,
+        current.size * (0.9 + pulse * 0.12),
+        danger,
+      );
+      final Paint slash = Paint()
+        ..color = Colors.white.withValues(alpha: 0.82)
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round;
+      final double r = current.size * 0.62;
+      canvas.drawLine(
+        current.position + Offset(-r * 0.6, r * 0.6),
+        current.position + Offset(r * 0.6, -r * 0.6),
+        slash,
+      );
+      return;
+    }
+
+    final Offset? binTarget = target;
+    if (binTarget == null || current.held) {
+      return;
+    }
+    final Offset start = current.position + Offset(0, current.size * 0.56);
+    final Offset end = binTarget + const Offset(0, -34);
+    final Offset control = Offset(
+      (start.dx + end.dx) / 2,
+      math.min(start.dy, end.dy) - size.height * 0.1,
+    );
+    final Path path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
+    final Paint glow = Paint()
+      ..color = current.type.color.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 13
+      ..strokeCap = StrokeCap.round;
+    final Paint line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.86)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.4
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, glow);
+    canvas.drawPath(path, line);
+
+    for (int i = 0; i < 5; i++) {
+      final double t = (progress + i * 0.2) % 1;
+      final Offset p = _quadraticPoint(start, control, end, t);
+      final Paint dot = Paint()
+        ..color = current.type.color.withValues(alpha: 1 - t * 0.42);
+      canvas.drawCircle(p, 4.5 - t * 1.5, dot);
+    }
+
+    final double arrowAngle = math.atan2(
+      end.dy - control.dy,
+      end.dx - control.dx,
+    );
+    final Path arrow = Path()
+      ..moveTo(end.dx, end.dy)
+      ..lineTo(
+        end.dx - math.cos(arrowAngle - 0.55) * 18,
+        end.dy - math.sin(arrowAngle - 0.55) * 18,
+      )
+      ..lineTo(
+        end.dx - math.cos(arrowAngle + 0.55) * 18,
+        end.dy - math.sin(arrowAngle + 0.55) * 18,
+      )
+      ..close();
+    canvas.drawPath(arrow, Paint()..color = current.type.color);
+  }
+
+  Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
+    final double mt = 1 - t;
+    return Offset(
+      mt * mt * a.dx + 2 * mt * t * b.dx + t * t * c.dx,
+      mt * mt * a.dy + 2 * mt * t * b.dy + t * t * c.dy,
+    );
+  }
+
+  @override
+  bool shouldRepaint(TutorialGuidePainter oldDelegate) {
+    return oldDelegate.item != item ||
+        oldDelegate.target != target ||
+        oldDelegate.progress != progress;
   }
 }
 
