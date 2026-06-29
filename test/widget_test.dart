@@ -42,4 +42,33 @@ void main() {
     expect(find.text('Drag to recycle'), findsOneWidget);
     expect(find.textContaining('Move the blue bottle'), findsOneWidget);
   });
+
+  testWidgets('shop exposes Eco Blast and result screen keeps earned stars', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const TrashTornadoApp(initialView: GameView.shop, screenshotMode: true),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.scrollUntilVisible(
+      find.text('Eco Blast'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Eco Blast'), findsOneWidget);
+    expect(find.textContaining('Clears every falling trash'), findsOneWidget);
+
+    await tester.pumpWidget(
+      const TrashTornadoApp(
+        key: ValueKey<String>('complete-screen'),
+        initialView: GameView.complete,
+        screenshotMode: true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.text('CLEAN CITY!'), findsOneWidget);
+    expect(find.byIcon(Icons.star_rounded), findsWidgets);
+  });
 }

@@ -128,10 +128,7 @@ class TrashTornadoApp extends StatelessWidget {
       ),
       builder: (BuildContext context, Widget? child) =>
           ArcadeViewport(child: child ?? const SizedBox.shrink()),
-      home: GameShell(
-        initialView: initialView,
-        screenshotMode: screenshotMode,
-      ),
+      home: GameShell(initialView: initialView, screenshotMode: screenshotMode),
     );
   }
 }
@@ -198,6 +195,8 @@ enum GameView {
 enum WasteType { plastic, metal, paper, glass, food, toxic }
 
 enum BinType { organic, recycle, paper, hazard }
+
+enum DropKind { waste, ecoBlast }
 
 extension WasteInfo on WasteType {
   String get label {
@@ -317,11 +316,13 @@ class WasteItem {
     required this.velocity,
     required this.size,
     required this.spin,
+    this.kind = DropKind.waste,
   });
 
   final int id;
   final WasteType type;
   final String asset;
+  final DropKind kind;
   Offset position;
   Offset velocity;
   double size;
@@ -646,6 +647,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     'Magnet': 1,
     'Freeze': 0,
     'Energy': 2,
+    'Eco Blast': 1,
   };
 
   Timer? _timer;
@@ -676,6 +678,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   int _lastCoinsEarned = 0;
   int _lastGemsEarned = 0;
   int _lastEnergyEarned = 0;
+  int _lastEarnedStars = 0;
   bool _lastNewRecord = false;
   int _combo = 0;
   int _hearts = 5;
@@ -686,6 +689,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   int _xp = 1250;
   double _timeLeft = 45;
   double _spawnIn = 0;
+  double _powerUpDropIn = 4.5;
   double _successPulse = 0;
   BinType? _hoverBin;
   BinType? _successBin;
@@ -848,6 +852,12 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
         final int speedLevel = _upgradeLevels['speed'] ?? 1;
         _spawnIn = math.max(0.34, 0.9 - speedLevel * 0.04 - _score / 50000);
       }
+      _powerUpDropIn -= dt;
+      if (_powerUpDropIn <= 0 &&
+          !_items.any((WasteItem item) => item.kind == DropKind.ecoBlast)) {
+        _spawnEcoBlastDrop();
+        _powerUpDropIn = 8 + _random.nextDouble() * 6;
+      }
 
       final List<WasteItem> removed = <WasteItem>[];
       final Offset tornadoCenter = Offset(
@@ -861,13 +871,14 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
           item.spin += dt * (item.type == WasteType.toxic ? 5 : 3);
         }
 
-        if (item.type == WasteType.toxic &&
+        if (item.kind == DropKind.waste &&
+            item.type == WasteType.toxic &&
             (item.position - tornadoCenter).distance < item.size * 0.85) {
           removed.add(item);
           _damagePlayer(position: item.position, toxic: true);
         } else if (item.position.dy > _playSize.height + 70) {
           removed.add(item);
-          if (item.type != WasteType.toxic) {
+          if (item.kind == DropKind.waste && item.type != WasteType.toxic) {
             _damagePlayer(position: item.position);
           }
         }
@@ -921,6 +932,25 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     );
   }
 
+  void _spawnEcoBlastDrop() {
+    if (_playSize.width < 120 || _playSize.height < 240) {
+      return;
+    }
+    final double x = 48 + _random.nextDouble() * (_playSize.width - 96);
+    _items.add(
+      WasteItem(
+        id: _nextItemId++,
+        type: WasteType.food,
+        kind: DropKind.ecoBlast,
+        asset: GameArt.iconEnergy,
+        position: Offset(x, -42),
+        velocity: Offset((_random.nextDouble() - 0.5) * 22, 78),
+        size: 70,
+        spin: _random.nextDouble() * math.pi,
+      ),
+    );
+  }
+
   void _applyScreenshotSeed() {
     _view = widget.initialView;
     _tutorialSeen = true;
@@ -941,6 +971,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     _lastCoinsEarned = 950;
     _lastGemsEarned = 25;
     _lastEnergyEarned = 5;
+    _lastEarnedStars = widget.initialView == GameView.complete ? 3 : 0;
     _lastNewRecord = true;
     _combo = 28;
     _hearts = 5;
@@ -1021,6 +1052,16 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
           velocity: Offset.zero,
           size: 72,
           spin: 0.35,
+        ),
+        WasteItem(
+          id: 9007,
+          type: WasteType.food,
+          kind: DropKind.ecoBlast,
+          asset: GameArt.iconEnergy,
+          position: Offset(size.width * 0.44, size.height * 0.27),
+          velocity: Offset.zero,
+          size: 70,
+          spin: 0.9,
         ),
       ]);
 
@@ -1103,6 +1144,8 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       _hearts = 5;
       _timeLeft = _modes[chosenMode].seconds + timeLevel * 2;
       _spawnIn = 0.08;
+      _powerUpDropIn = 4.5;
+      _lastEarnedStars = 0;
       _paused = false;
       _lastTick = DateTime.now();
     });
@@ -1110,6 +1153,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   }
 
   void _finishRun() {
+    final int earnedStars = _calculateEarnedStars(_score, _hearts);
     final double boost = _modes[_selectedMode].rewardBoost;
     final int coinsEarned = math.max(90, (_score / 18 * boost).round());
     final int gemsEarned = _score >= 15000 ? 8 : (_score >= 7000 ? 4 : 2);
@@ -1118,6 +1162,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     _lastCoinsEarned = coinsEarned;
     _lastGemsEarned = gemsEarned;
     _lastEnergyEarned = energyEarned;
+    _lastEarnedStars = earnedStars;
     _coins += coinsEarned;
     _gems += gemsEarned;
     _energy = math.min(10, _energy - 1 + energyEarned);
@@ -1133,7 +1178,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     }
     _view = GameView.complete;
     _celebrationController.forward(from: 0);
-    if (_earnedStars > 0) {
+    if (earnedStars > 0) {
       _playSfx(GameArt.sfxComplete, volume: 0.76);
       _hapticMedium();
     } else {
@@ -1144,13 +1189,20 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   }
 
   int get _earnedStars {
-    if (_hearts <= 0 || _score <= 0) {
+    if (_view == GameView.complete) {
+      return _lastEarnedStars;
+    }
+    return _calculateEarnedStars(_score, _hearts);
+  }
+
+  int _calculateEarnedStars(int score, int hearts) {
+    if (hearts <= 0 || score <= 0) {
       return 0;
     }
-    if (_score >= 12000) {
+    if (score >= 12000) {
       return 3;
     }
-    if (_score >= 6000) {
+    if (score >= 6000) {
       return 2;
     }
     return 1;
@@ -1200,6 +1252,10 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     if (index == -1) {
       return;
     }
+    if (_items[index].kind == DropKind.ecoBlast) {
+      setState(() => _collectEcoBlast(_items[index]));
+      return;
+    }
     if (_items[index].type == WasteType.toxic) {
       setState(() {
         final Offset hitPosition = _items[index].position;
@@ -1227,7 +1283,9 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
 
   void _dragItem(int id, DragUpdateDetails details) {
     final int index = _items.indexWhere((WasteItem item) => item.id == id);
-    if (index == -1 || _items[index].type == WasteType.toxic) {
+    if (index == -1 ||
+        _items[index].kind != DropKind.waste ||
+        _items[index].type == WasteType.toxic) {
       return;
     }
     setState(() {
@@ -1244,6 +1302,10 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       return;
     }
     final WasteItem item = _items[index];
+    if (item.kind == DropKind.ecoBlast) {
+      setState(() => _collectEcoBlast(item));
+      return;
+    }
     final BinType? bin = _binForPosition(item.position);
     final bool strongSwipe = details.velocity.pixelsPerSecond.distance > 520;
     final BinType? swipedBin = strongSwipe ? _binForSwipe(item.position) : null;
@@ -1293,6 +1355,9 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   }
 
   void _collectItem(WasteItem item, BinType bin) {
+    if (item.kind != DropKind.waste) {
+      return;
+    }
     _items.remove(item);
     _combo += 1;
     final int powerLevel = _upgradeLevels['power'] ?? 1;
@@ -1321,16 +1386,81 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     }
   }
 
+  void _collectEcoBlast(WasteItem item) {
+    final Offset origin = item.position;
+    _items.remove(item);
+    _activateEcoBlast(origin, freePickup: true);
+  }
+
+  void _useEcoBlastInventory() {
+    if (_view != GameView.game || (_inventory['Eco Blast'] ?? 0) <= 0) {
+      return;
+    }
+    setState(() {
+      _inventory['Eco Blast'] = (_inventory['Eco Blast'] ?? 0) - 1;
+      _activateEcoBlast(
+        Offset(_playSize.width / 2, _playSize.height * 0.46),
+        freePickup: false,
+      );
+    });
+  }
+
+  void _activateEcoBlast(Offset origin, {required bool freePickup}) {
+    final List<WasteItem> cleared = _items
+        .where((WasteItem item) => item.kind == DropKind.waste)
+        .toList(growable: false);
+    final int toxicCount = cleared
+        .where((WasteItem item) => item.type == WasteType.toxic)
+        .length;
+    final int cleanCount = cleared.length - toxicCount;
+    _items.removeWhere((WasteItem item) => cleared.contains(item));
+
+    final int points = 220 + cleanCount * 115 + toxicCount * 45;
+    _score += points;
+    _coins += math.max(12, cleanCount * 5 + toxicCount * 2);
+    _combo = math.max(_combo + math.max(1, cleanCount), 1);
+    _successBin = BinType.recycle;
+    _successPulse = 1;
+    _playSfx(GameArt.sfxComplete, volume: freePickup ? 0.72 : 0.68);
+    _hapticMedium();
+
+    _bursts.add(
+      SortBurst(
+        position: origin,
+        label: 'ECO BLAST',
+        color: const Color(0xffbaff3d),
+      ),
+    );
+    _bursts.add(
+      SortBurst(
+        position: origin + const Offset(0, -38),
+        label: '+$points',
+        color: const Color(0xffffe448),
+      ),
+    );
+    for (final WasteItem item in cleared.take(9)) {
+      _bursts.add(
+        SortBurst(
+          position: item.position,
+          label: 'CLEAR',
+          color: item.type == WasteType.toxic
+              ? const Color(0xffff7483)
+              : const Color(0xff7dffba),
+        ),
+      );
+    }
+  }
+
   Map<BinType, Rect> _binRects(Size size) {
     if (size == Size.zero) {
       return const <BinType, Rect>{};
     }
     final List<BinType> bins = _binTypes;
-    final double binTop = size.height - 102;
+    final double binTop = size.height - 120;
     final double slotWidth = size.width / bins.length;
     return <BinType, Rect>{
       for (int i = 0; i < bins.length; i++)
-        bins[i]: Rect.fromLTWH(i * slotWidth + 5, binTop, slotWidth - 10, 92),
+        bins[i]: Rect.fromLTWH(i * slotWidth + 5, binTop, slotWidth - 10, 96),
     };
   }
 
@@ -2270,9 +2400,12 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
               break;
             }
           }
-          final BinType? activeBin = heldItem?.type.bin;
+          final BinType? activeBin = heldItem?.kind == DropKind.waste
+              ? heldItem?.type.bin
+              : null;
           final bool hazardWarning = _items.any(
-            (WasteItem item) => item.type == WasteType.toxic,
+            (WasteItem item) =>
+                item.kind == DropKind.waste && item.type == WasteType.toxic,
           );
           return Stack(
             fit: StackFit.expand,
@@ -2360,7 +2493,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                   ),
                 ),
               for (final WasteItem item in _items)
-                if (item.type == WasteType.toxic)
+                if (item.kind == DropKind.waste && item.type == WasteType.toxic)
                   Positioned(
                     left: (item.position.dx - 42)
                         .clamp(8, size.width - 92)
@@ -2399,6 +2532,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                 top: size.height * 0.43,
                 child: _powerMeter(),
               ),
+              Positioned(right: 10, bottom: 142, child: _ecoBlastButton()),
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -2446,7 +2580,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Container(
-                            margin: const EdgeInsets.only(left: 6, bottom: 116),
+                            margin: const EdgeInsets.only(left: 6, bottom: 138),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 10,
@@ -2546,6 +2680,63 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
               ),
               borderRadius: BorderRadius.circular(9),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _ecoBlastButton() {
+    final int owned = _inventory['Eco Blast'] ?? 0;
+    final bool enabled = owned > 0 && _view == GameView.game && !_paused;
+    return GestureDetector(
+      onTap: enabled ? _useEcoBlastInventory : null,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: enabled ? 1 : 0.62,
+        child: Container(
+          width: 82,
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: enabled
+                  ? const <Color>[Color(0xfff8ff45), Color(0xff19c968)]
+                  : const <Color>[Color(0xff53666d), Color(0xff21323a)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white, width: 1.4),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: (enabled ? const Color(0xffbaff3d) : Colors.black)
+                    .withValues(alpha: enabled ? 0.42 : 0.26),
+                blurRadius: enabled ? 18 : 8,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(
+                Icons.auto_awesome_rounded,
+                color: Color(0xff07381f),
+                size: 22,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'BLAST x$owned',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: TextStyle(
+                  color: enabled ? const Color(0xff07381f) : Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  shadows: enabled ? null : _textShadows,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -3202,6 +3393,13 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
           300,
           Icons.bolt_rounded,
           const Color(0xffffc73d),
+        ),
+        _ShopEntry(
+          'Eco Blast',
+          'Clears every falling trash item instantly.',
+          700,
+          Icons.auto_awesome_rounded,
+          const Color(0xffbaff3d),
         ),
       ],
       1 => <_ShopEntry>[
@@ -5558,7 +5756,9 @@ class GameplayEffectsPainter extends CustomPainter {
     }
     WasteItem? recyclable;
     for (final WasteItem item in items) {
-      if (item.held && item.type.bin == BinType.recycle) {
+      if (item.kind == DropKind.waste &&
+          item.held &&
+          item.type.bin == BinType.recycle) {
         recyclable = item;
         break;
       }
@@ -5589,7 +5789,7 @@ class GameplayEffectsPainter extends CustomPainter {
 
   void _paintToxicWarnings(Canvas canvas) {
     for (final WasteItem item in items) {
-      if (item.type != WasteType.toxic) {
+      if (item.kind != DropKind.waste || item.type != WasteType.toxic) {
         continue;
       }
       final double pulse = 0.5 + math.sin(time * 8 + item.id) * 0.18;
@@ -5732,8 +5932,9 @@ class WasteToken extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double tokenSize = item.size * 1.2;
+    final bool powerUp = item.kind == DropKind.ecoBlast;
     return Transform.rotate(
-      angle: item.spin,
+      angle: powerUp ? math.sin(item.spin) * 0.12 : item.spin,
       child: SizedBox(
         width: tokenSize,
         height: tokenSize,
@@ -5759,24 +5960,122 @@ class WasteToken extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: <BoxShadow>[
                     BoxShadow(
-                      color: item.type.color.withValues(alpha: 0.65),
+                      color:
+                          (powerUp ? const Color(0xffbaff3d) : item.type.color)
+                              .withValues(alpha: 0.65),
                       blurRadius: 24,
                       spreadRadius: 4,
                     ),
                   ],
                 ),
               ),
-            Image.asset(
-              item.asset,
-              width: tokenSize,
-              height: tokenSize,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
+            if (powerUp)
+              EcoBlastToken(size: tokenSize, spin: item.spin)
+            else
+              Image.asset(
+                item.asset,
+                width: tokenSize,
+                height: tokenSize,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
           ],
         ),
       ),
     );
+  }
+}
+
+class EcoBlastToken extends StatelessWidget {
+  const EcoBlastToken({required this.size, required this.spin, super.key});
+
+  final double size;
+  final double spin;
+
+  @override
+  Widget build(BuildContext context) {
+    final double pulse = 0.5 + math.sin(spin * 1.4) * 0.5;
+    return Container(
+      width: size * 0.86,
+      height: size * 0.86,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          colors: <Color>[
+            Color(0xffffffff),
+            Color(0xfff7ff55),
+            Color(0xff31e46b),
+            Color(0xff087c4d),
+          ],
+          stops: <double>[0.0, 0.34, 0.72, 1],
+        ),
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xffbaff3d).withValues(alpha: 0.5 + pulse * 0.3),
+            blurRadius: 22,
+            spreadRadius: 4,
+          ),
+          const BoxShadow(
+            color: Colors.black38,
+            blurRadius: 10,
+            offset: Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          Positioned.fill(
+            child: CustomPaint(painter: EcoBlastPainter(progress: spin)),
+          ),
+          Icon(
+            Icons.recycling_rounded,
+            color: const Color(0xff06452e),
+            size: size * 0.38,
+          ),
+          Positioned(
+            right: size * 0.11,
+            top: size * 0.12,
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white.withValues(alpha: 0.92),
+              size: size * 0.22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EcoBlastPainter extends CustomPainter {
+  EcoBlastPainter({required this.progress});
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = size.center(Offset.zero);
+    final Paint ring = Paint()
+      ..color = Colors.white.withValues(alpha: 0.78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 3; i++) {
+      final double phase = progress * 0.9 + i * 2.1;
+      final Rect rect = Rect.fromCenter(
+        center: center,
+        width: size.width * (0.62 + i * 0.08),
+        height: size.height * (0.23 + i * 0.04),
+      );
+      canvas.drawArc(rect, phase, math.pi * 1.16, false, ring);
+    }
+  }
+
+  @override
+  bool shouldRepaint(EcoBlastPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
@@ -5809,8 +6108,8 @@ class BinDock extends StatelessWidget {
       BinType.hazard,
     ];
     return Container(
-      height: 106,
-      padding: const EdgeInsets.fromLTRB(5, 6, 5, 8),
+      height: 126,
+      padding: const EdgeInsets.fromLTRB(5, 6, 5, 24),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
