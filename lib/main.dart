@@ -80,11 +80,38 @@ class GameArt {
 }
 
 void main() {
-  runApp(const TrashTornadoApp());
+  final String? shot = Uri.base.queryParameters['shot'];
+  runApp(
+    TrashTornadoApp(
+      initialView: _viewFromShot(shot),
+      screenshotMode: shot != null,
+    ),
+  );
+}
+
+GameView _viewFromShot(String? shot) {
+  return switch (shot) {
+    'game' || 'gameplay' => GameView.game,
+    'map' || 'world-map' => GameView.map,
+    'skins' => GameView.skins,
+    'complete' || 'level-complete' => GameView.complete,
+    'shop' => GameView.shop,
+    'upgrades' => GameView.upgrades,
+    'rewards' => GameView.rewards,
+    'settings' => GameView.settings,
+    _ => GameView.menu,
+  };
 }
 
 class TrashTornadoApp extends StatelessWidget {
-  const TrashTornadoApp({super.key});
+  const TrashTornadoApp({
+    this.initialView = GameView.menu,
+    this.screenshotMode = false,
+    super.key,
+  });
+
+  final GameView initialView;
+  final bool screenshotMode;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +128,10 @@ class TrashTornadoApp extends StatelessWidget {
       ),
       builder: (BuildContext context, Widget? child) =>
           ArcadeViewport(child: child ?? const SizedBox.shrink()),
-      home: const GameShell(),
+      home: GameShell(
+        initialView: initialView,
+        screenshotMode: screenshotMode,
+      ),
     );
   }
 }
@@ -584,7 +614,14 @@ const List<UpgradeSpec> _upgrades = <UpgradeSpec>[
 ];
 
 class GameShell extends StatefulWidget {
-  const GameShell({super.key});
+  const GameShell({
+    this.initialView = GameView.menu,
+    this.screenshotMode = false,
+    super.key,
+  });
+
+  final GameView initialView;
+  final bool screenshotMode;
 
   @override
   State<GameShell> createState() => _GameShellState();
@@ -661,6 +698,9 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    if (widget.screenshotMode) {
+      _applyScreenshotSeed();
+    }
     _musicPlayer = AudioPlayer(playerId: 'trash_tornado_music');
     _sfxPlayer = AudioPlayer(playerId: 'trash_tornado_sfx');
     _uiPlayer = AudioPlayer(playerId: 'trash_tornado_ui');
@@ -672,6 +712,9 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 1750),
     );
+    if (widget.screenshotMode && _view == GameView.complete) {
+      _celebrationController.value = 1;
+    }
     unawaited(_configureAudio());
     _timer = Timer.periodic(const Duration(milliseconds: 33), _tick);
   }
@@ -784,6 +827,10 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
 
   void _tick(Timer timer) {
     final DateTime now = DateTime.now();
+    if (widget.screenshotMode) {
+      _lastTick = now;
+      return;
+    }
     final double dt = _lastTick == null
         ? 0.033
         : math.min(now.difference(_lastTick!).inMilliseconds / 1000, 0.06);
@@ -872,6 +919,135 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
         spin: _random.nextDouble() * math.pi,
       ),
     );
+  }
+
+  void _applyScreenshotSeed() {
+    _view = widget.initialView;
+    _tutorialSeen = true;
+    _music = false;
+    _sfx = false;
+    _vibration = false;
+    _selectedSkin = switch (widget.initialView) {
+      GameView.game => 1,
+      GameView.complete => 4,
+      _ => 0,
+    };
+    _selectedMap = widget.initialView == GameView.map ? 1 : 0;
+    _coins = 6550;
+    _gems = 322;
+    _energy = 5;
+    _score = widget.initialView == GameView.complete ? 18950 : 12750;
+    _bestScore = 18950;
+    _lastCoinsEarned = 950;
+    _lastGemsEarned = 25;
+    _lastEnergyEarned = 5;
+    _lastNewRecord = true;
+    _combo = 28;
+    _hearts = 5;
+    _timeLeft = 45;
+    _spawnIn = 99;
+    _unlockedSkins
+      ..clear()
+      ..addAll(List<int>.generate(_skins.length, (int index) => index));
+    _unlockedMaps
+      ..clear()
+      ..addAll(<int>{0, 1, 2});
+    _claimedRewardDays
+      ..clear()
+      ..addAll(<int>{1, 2, 3});
+  }
+
+  void _ensureScreenshotGameplayItems(Size size) {
+    if (!widget.screenshotMode || _view != GameView.game || size == Size.zero) {
+      return;
+    }
+    if (_items.isNotEmpty && _playSize == size) {
+      return;
+    }
+
+    _items
+      ..clear()
+      ..addAll(<WasteItem>[
+        WasteItem(
+          id: 9001,
+          type: WasteType.glass,
+          asset: GameArt.trashGlassBottle,
+          position: Offset(size.width * 0.22, size.height * 0.18),
+          velocity: Offset.zero,
+          size: 76,
+          spin: -0.26,
+        ),
+        WasteItem(
+          id: 9002,
+          type: WasteType.paper,
+          asset: GameArt.trashCardboardBox,
+          position: Offset(size.width * 0.62, size.height * 0.21),
+          velocity: Offset.zero,
+          size: 88,
+          spin: 0.2,
+        ),
+        WasteItem(
+          id: 9003,
+          type: WasteType.food,
+          asset: GameArt.trashBananaPeel,
+          position: Offset(size.width * 0.54, size.height * 0.36),
+          velocity: Offset.zero,
+          size: 72,
+          spin: -0.4,
+        ),
+        WasteItem(
+          id: 9004,
+          type: WasteType.metal,
+          asset: GameArt.trashCrushedCan,
+          position: Offset(size.width * 0.79, size.height * 0.32),
+          velocity: Offset.zero,
+          size: 76,
+          spin: 0.5,
+        ),
+        WasteItem(
+          id: 9005,
+          type: WasteType.toxic,
+          asset: GameArt.trashToxicBarrel,
+          position: Offset(size.width * 0.28, size.height * 0.53),
+          velocity: Offset.zero,
+          size: 82,
+          spin: -0.15,
+        ),
+        WasteItem(
+          id: 9006,
+          type: WasteType.plastic,
+          asset: GameArt.trashPlasticBottleBlue,
+          position: Offset(size.width * 0.72, size.height * 0.63),
+          velocity: Offset.zero,
+          size: 72,
+          spin: 0.35,
+        ),
+      ]);
+
+    _items[2].trail.addAll(<Offset>[
+      Offset(size.width * 0.47, size.height * 0.44),
+      Offset(size.width * 0.51, size.height * 0.40),
+      _items[2].position,
+    ]);
+    _bursts
+      ..clear()
+      ..add(
+        SortBurst(
+          position: Offset(size.width * 0.23, size.height * 0.36),
+          label: 'COMBO 28',
+          color: const Color(0xffffd642),
+        ),
+      )
+      ..add(
+        SortBurst(
+          position: Offset(size.width * 0.78, size.height * 0.48),
+          label: '+320',
+          color: const Color(0xffbaff3d),
+        ),
+      );
+    _hoverBin = BinType.recycle;
+    _successBin = BinType.paper;
+    _successPulse = 0.75;
   }
 
   void _rememberTrailPoint(WasteItem item) {
@@ -2085,6 +2261,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
           if (_playSize != size) {
             _playSize = size;
           }
+          _ensureScreenshotGameplayItems(size);
           final Map<BinType, Rect> binRects = _binRects(size);
           WasteItem? heldItem;
           for (final WasteItem item in _items) {
