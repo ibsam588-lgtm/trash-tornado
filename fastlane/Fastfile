@@ -14,6 +14,10 @@ def play_credentials
   UI.user_error!("Missing GOOGLE_PLAY_JSON_KEY_FILE or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
 end
 
+def truthy_env?(name)
+  %w[1 true yes].include?((ENV[name] || "").downcase)
+end
+
 platform :android do
   desc "Validate Play Store listing metadata without uploading a release"
   lane :validate_metadata do
@@ -36,6 +40,7 @@ platform :android do
     aab_path = ENV["ANDROID_AAB_PATH"] || "build/app/outputs/bundle/release/app-release.aab"
     track = ENV["PLAY_TRACK"] || "internal"
     release_status = ENV["PLAY_RELEASE_STATUS"] || "completed"
+    upload_listing_assets = truthy_env?("PLAY_UPLOAD_LISTING_ASSETS")
 
     supply(
       play_credentials.merge(
@@ -44,9 +49,10 @@ platform :android do
         track: track,
         release_status: release_status,
         metadata_path: "fastlane/metadata/android",
-        skip_upload_metadata: false,
-        skip_upload_images: false,
-        skip_upload_screenshots: false
+        skip_upload_metadata: !upload_listing_assets,
+        skip_upload_images: !upload_listing_assets,
+        skip_upload_screenshots: !upload_listing_assets,
+        skip_upload_changelogs: !upload_listing_assets
       )
     )
   end
