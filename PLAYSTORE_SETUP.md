@@ -60,6 +60,8 @@ Play listing metadata, graphics, and screenshots live in:
 fastlane/metadata/android/en-US/
 ```
 
+The phone screenshots are real captures from the Flutter app's web build. The app supports store-capture routes with `?shot=home`, `?shot=gameplay`, `?shot=map`, `?shot=skins`, `?shot=complete`, and `?shot=shop`, then the captured images are resized to `1080x1920` for Play Console.
+
 Play Console form answers live in:
 
 ```text
