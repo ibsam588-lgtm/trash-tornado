@@ -32,7 +32,7 @@ Add these repository secrets before running `Play Store Internal Release`:
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_PASSWORD`
 - `ANDROID_KEY_ALIAS`
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`: Play Developer API service account JSON
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64`: base64-encoded Play Developer API service account JSON
 
 Add these repository variables:
 
@@ -51,6 +51,8 @@ On PowerShell:
 ```powershell
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("android/app/upload-keystore.jks"))
 ```
+
+Use the same PowerShell command against the Play service account JSON file to create `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_B64`.
 
 ## 4. Store listing
 
