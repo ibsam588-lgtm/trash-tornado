@@ -2344,18 +2344,14 @@ class _GameShellState extends State<GameShell>
         child: SafeArea(
           child: Column(
             children: <Widget>[
-              _topStatusBar(showBack: false),
+              _topStatusBar(showBack: false, bottomPadding: 0),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: const Color(0xff83ceff),
-                        width: 1.7,
-                      ),
                       boxShadow: const <BoxShadow>[
                         BoxShadow(
                           color: Colors.black87,
@@ -2565,6 +2561,13 @@ class _GameShellState extends State<GameShell>
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: HomePanelFramePainter(),
+                            ),
                           ),
                         ),
                       ],
@@ -4888,9 +4891,13 @@ class _GameShellState extends State<GameShell>
     );
   }
 
-  Widget _topStatusBar({String? title, bool showBack = true}) {
+  Widget _topStatusBar({
+    String? title,
+    bool showBack = true,
+    double bottomPadding = 4,
+  }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 7, 8, 4),
+      padding: EdgeInsets.fromLTRB(8, 7, 8, bottomPadding),
       child: Row(
         children: <Widget>[
           if (showBack)
@@ -5371,6 +5378,48 @@ class _NavEntry {
   final String label;
   final IconData icon;
   final GameView view;
+}
+
+class HomePanelFramePainter extends CustomPainter {
+  const HomePanelFramePainter();
+
+  static const Color _stroke = Color(0xff83ceff);
+  static const double _width = 1.7;
+  static const double _radius = 22;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    final double inset = _width / 2;
+    final double radius = math.min(
+      _radius,
+      math.min(size.width, size.height) / 2,
+    );
+    final double left = inset;
+    final double right = size.width - inset;
+    final double top = inset;
+    final double bottom = size.height - inset;
+    final Paint paint = Paint()
+      ..color = _stroke
+      ..strokeWidth = _width
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final Path frame = Path()
+      ..moveTo(left, top + radius)
+      ..lineTo(left, bottom - radius)
+      ..quadraticBezierTo(left, bottom, left + radius, bottom)
+      ..lineTo(right - radius, bottom)
+      ..quadraticBezierTo(right, bottom, right, bottom - radius)
+      ..lineTo(right, top + radius);
+
+    canvas.drawPath(frame, paint);
+  }
+
+  @override
+  bool shouldRepaint(HomePanelFramePainter oldDelegate) => false;
 }
 
 class HomeSwirlPainter extends CustomPainter {
