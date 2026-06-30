@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:in_app_update/in_app_update.dart';
 
 class GameArt {
   const GameArt._();
@@ -128,7 +130,269 @@ class TrashTornadoApp extends StatelessWidget {
       ),
       builder: (BuildContext context, Widget? child) =>
           ArcadeViewport(child: child ?? const SizedBox.shrink()),
-      home: GameShell(initialView: initialView, screenshotMode: screenshotMode),
+      home: ForcedUpdateGate(
+        enabled: kReleaseMode && !screenshotMode,
+        child: GameShell(
+          initialView: initialView,
+          screenshotMode: screenshotMode,
+        ),
+      ),
+    );
+  }
+}
+
+class ForcedUpdateGate extends StatefulWidget {
+  const ForcedUpdateGate({
+    required this.child,
+    required this.enabled,
+    super.key,
+  });
+
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<ForcedUpdateGate> createState() => _ForcedUpdateGateState();
+}
+
+class _ForcedUpdateGateState extends State<ForcedUpdateGate>
+    with WidgetsBindingObserver {
+  bool _checking = true;
+  bool _blocked = false;
+  bool _updateFlowActive = false;
+  String _message = 'Checking for the latest version...';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_enforceLatestVersion());
+  }
+
+  @override
+  void didUpdateWidget(ForcedUpdateGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled != widget.enabled && widget.enabled) {
+      unawaited(_enforceLatestVersion());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _blocked) {
+      unawaited(_enforceLatestVersion());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _enforceLatestVersion() async {
+    if (_updateFlowActive) {
+      return;
+    }
+    if (!widget.enabled ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android) {
+      if (mounted) {
+        setState(() {
+          _checking = false;
+          _blocked = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _checking = true;
+      _message = 'Checking for the latest version...';
+    });
+
+    bool foundRequiredUpdate = false;
+    try {
+      final AppUpdateInfo info = await InAppUpdate.checkForUpdate();
+      final bool updateAvailable =
+          info.updateAvailability == UpdateAvailability.updateAvailable ||
+          info.updateAvailability ==
+              UpdateAvailability.developerTriggeredUpdateInProgress;
+
+      if (!updateAvailable) {
+        if (mounted) {
+          setState(() {
+            _checking = false;
+            _blocked = false;
+          });
+        }
+        return;
+      }
+      foundRequiredUpdate = true;
+
+      if (!info.immediateUpdateAllowed &&
+          info.updateAvailability !=
+              UpdateAvailability.developerTriggeredUpdateInProgress) {
+        _blockForUpdate(
+          'Update required. Open Google Play, install the latest Trash Tornado, then return here.',
+        );
+        return;
+      }
+
+      _updateFlowActive = true;
+      final AppUpdateResult result = await InAppUpdate.performImmediateUpdate();
+      _updateFlowActive = false;
+      if (!mounted) {
+        return;
+      }
+      if (result == AppUpdateResult.success) {
+        setState(() {
+          _checking = false;
+          _blocked = false;
+        });
+      } else {
+        _blockForUpdate(
+          'Update required. Please complete the Google Play update to keep playing.',
+        );
+      }
+    } on PlatformException {
+      _updateFlowActive = false;
+      if (mounted) {
+        if (foundRequiredUpdate) {
+          _blockForUpdate(
+            'Update required. Please update Trash Tornado from Google Play to keep playing.',
+          );
+        } else {
+          setState(() {
+            _checking = false;
+            _blocked = false;
+          });
+        }
+      }
+    }
+  }
+
+  void _blockForUpdate(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _checking = false;
+      _blocked = true;
+      _message = message;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking || _blocked) {
+      return UpdateRequiredScreen(
+        checking: _checking,
+        message: _message,
+        onRetry: _enforceLatestVersion,
+      );
+    }
+    return widget.child;
+  }
+}
+
+class UpdateRequiredScreen extends StatelessWidget {
+  const UpdateRequiredScreen({
+    required this.checking,
+    required this.message,
+    required this.onRetry,
+    super.key,
+  });
+
+  final bool checking;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              Color(0xff0b4fa2),
+              Color(0xff062f60),
+              Color(0xff071423),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Container(
+              width: 320,
+              margin: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[Color(0xff0d3760), Color(0xff041321)],
+                ),
+                border: Border.all(color: const Color(0xff78c7ff), width: 1.4),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 18,
+                    offset: Offset(0, 9),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    checking
+                        ? Icons.system_update_alt_rounded
+                        : Icons.lock_clock_rounded,
+                    color: const Color(0xffbaff3d),
+                    size: 54,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    checking ? 'Checking Update' : 'Update Required',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      height: 1.25,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (checking)
+                    const CircularProgressIndicator(color: Color(0xffbaff3d))
+                  else
+                    ArcadeButton(
+                      label: 'Update Now',
+                      icon: Icons.system_update_rounded,
+                      compact: true,
+                      color: const Color(0xff62c90c),
+                      onPressed: onRetry,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -4943,39 +5207,6 @@ class HomeSwirlPainter extends CustomPainter {
             Rect.fromCircle(center: center, radius: size.width * 0.53),
           );
     canvas.drawCircle(center, size.width * 0.53, halo);
-
-    for (int i = 0; i < 10; i++) {
-      final double t = i / 9;
-      final double y = center.dy + bodyHeight * (0.31 - t * 0.73);
-      final double width = size.width * (0.16 + t * 0.6);
-      final double height = 18 + t * 18;
-      final double wobble = math.sin(phase * 1.25 + i * 0.9) * 8;
-      final Rect ring = Rect.fromCenter(
-        center: Offset(center.dx + wobble, y),
-        width: width,
-        height: height,
-      );
-      final Paint glow = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = 8 - t * 2.5
-        ..color = primary.withValues(alpha: 0.12 + t * 0.07)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
-      final Paint ribbon = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = 2.4 + t * 1.4
-        ..shader = LinearGradient(
-          colors: <Color>[
-            Colors.white.withValues(alpha: 0.22),
-            secondary.withValues(alpha: 0.7),
-            primary.withValues(alpha: 0.9),
-          ],
-        ).createShader(ring);
-      final double start = phase * (1.1 + t * 0.45) + i * 0.78;
-      canvas.drawArc(ring, start, math.pi * 0.95, false, glow);
-      canvas.drawArc(ring, start, math.pi * 0.95, false, ribbon);
-    }
 
     for (int i = 0; i < 14; i++) {
       final double t = (progress * 0.62 + i * 0.071) % 1;
