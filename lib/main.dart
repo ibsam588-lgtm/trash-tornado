@@ -1944,11 +1944,6 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                         ),
                         Positioned.fill(
                           child: IgnorePointer(
-                            child: _homeFloatingTrashLayer(),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
                             child: LayoutBuilder(
                               builder:
                                   (
@@ -2125,126 +2120,6 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       GameArt.homeBackground,
       alignment: Alignment.topCenter,
       scrim: 0.02,
-    );
-  }
-
-  Widget _homeFloatingTrashLayer() {
-    return AnimatedBuilder(
-      animation: _ambientController,
-      builder: (BuildContext context, _) {
-        final double t = _ambientController.value;
-        return LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final Size size = Size(constraints.maxWidth, constraints.maxHeight);
-            return Stack(
-              children: <Widget>[
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashGlassBottle,
-                  x: 0.07,
-                  y: 0.08,
-                  itemSize: 92,
-                  angle: -0.38,
-                  phase: 0.1,
-                ),
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashCardboardBox,
-                  x: 0.72,
-                  y: 0.19,
-                  itemSize: 96,
-                  angle: 0.18,
-                  phase: 0.58,
-                ),
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashCrumpledPaper,
-                  x: 0.26,
-                  y: 0.33,
-                  itemSize: 70,
-                  angle: -0.24,
-                  phase: 0.33,
-                ),
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashBananaPeel,
-                  x: 0.72,
-                  y: 0.39,
-                  itemSize: 68,
-                  angle: 0.14,
-                  phase: 0.81,
-                ),
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashRedSodaCan,
-                  x: 0.80,
-                  y: 0.52,
-                  itemSize: 74,
-                  angle: 0.34,
-                  phase: 0.44,
-                ),
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashPlasticBottleBlue,
-                  x: 0.16,
-                  y: 0.63,
-                  itemSize: 88,
-                  angle: -0.3,
-                  phase: 0.66,
-                ),
-                _homeTrashAsset(
-                  size: size,
-                  progress: t,
-                  asset: GameArt.trashToxicBarrel,
-                  x: 0.78,
-                  y: 0.68,
-                  itemSize: 74,
-                  angle: -0.16,
-                  phase: 0.92,
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _homeTrashAsset({
-    required Size size,
-    required double progress,
-    required String asset,
-    required double x,
-    required double y,
-    required double itemSize,
-    required double angle,
-    required double phase,
-  }) {
-    final double scale = (size.shortestSide / 430).clamp(0.74, 1.14).toDouble();
-    final double bob = math.sin((progress + phase) * math.pi * 2) * 7;
-    final double drift = math.cos((progress + phase) * math.pi * 2) * 5;
-    final double actualSize = itemSize * scale;
-    return Positioned(
-      left: size.width * x - actualSize / 2 + drift,
-      top: size.height * y - actualSize / 2 + bob,
-      child: Transform.rotate(
-        angle: angle + math.sin((progress + phase) * math.pi * 2) * 0.08,
-        child: SizedBox(
-          width: actualSize,
-          height: actualSize,
-          child: Image.asset(
-            asset,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-          ),
-        ),
-      ),
     );
   }
 
@@ -5102,24 +4977,20 @@ class HomeSwirlPainter extends CustomPainter {
       canvas.drawArc(ring, start, math.pi * 0.95, false, ribbon);
     }
 
-    for (int i = 0; i < 26; i++) {
-      final double t = (progress * 0.78 + i * 0.061) % 1;
+    for (int i = 0; i < 14; i++) {
+      final double t = (progress * 0.62 + i * 0.071) % 1;
       final double angle = phase * 1.6 + i * 1.38;
-      final double radius = size.width * (0.1 + t * 0.29);
-      final double y = center.dy + bodyHeight * (0.34 - t * 0.78);
+      final double radius = size.width * (0.08 + t * 0.22);
+      final double y = center.dy + bodyHeight * (0.28 - t * 0.58);
       final Offset point = Offset(
         center.dx + math.cos(angle) * radius,
-        y + math.sin(angle * 1.7) * 13,
+        y + math.sin(angle * 1.7) * 9,
       );
-      final double scale = 0.62 + t * 0.78;
+      final double scale = 0.45 + t * 0.55;
       final Color color = i.isEven
           ? const Color(0xffbaff3d)
           : const Color(0xfffff06a);
-      if (i % 5 == 0) {
-        _drawDebris(canvas, point, scale, angle, color);
-      } else {
-        _drawLeaf(canvas, point, scale, angle, color);
-      }
+      _drawLeaf(canvas, point, scale, angle, color.withValues(alpha: 0.62));
     }
 
     final Paint ground = Paint()
@@ -5154,7 +5025,7 @@ class HomeSwirlPainter extends CustomPainter {
     canvas.drawPath(
       leaf,
       Paint()
-        ..color = color.withValues(alpha: 0.82)
+        ..color = color.withValues(alpha: 0.52)
         ..style = PaintingStyle.fill,
     );
     canvas.drawLine(
@@ -5162,35 +5033,6 @@ class HomeSwirlPainter extends CustomPainter {
       Offset(7 * scale, 0),
       Paint()
         ..color = Colors.white.withValues(alpha: 0.34)
-        ..strokeWidth = math.max(0.8, scale),
-    );
-    canvas.restore();
-  }
-
-  void _drawDebris(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    double angle,
-    Color color,
-  ) {
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(angle);
-    final RRect body = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset.zero,
-        width: 13 * scale,
-        height: 8 * scale,
-      ),
-      Radius.circular(2 * scale),
-    );
-    canvas.drawRRect(body, Paint()..color = color.withValues(alpha: 0.72));
-    canvas.drawRRect(
-      body,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.42)
-        ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(0.8, scale),
     );
     canvas.restore();
