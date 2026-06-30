@@ -43,6 +43,31 @@ void main() {
     expect(find.textContaining('Move the blue bottle'), findsOneWidget);
   });
 
+  testWidgets('back button asks before quitting an active run', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const TrashTornadoApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    await tester.tap(find.text('PLAY'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.textContaining('Tutorial 1/3'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('Quit Game?'), findsOneWidget);
+    expect(find.text('Do you want to quit the game?'), findsOneWidget);
+
+    await tester.tap(find.text('KEEP PLAYING'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.textContaining('Tutorial 1/3'), findsOneWidget);
+  });
+
   testWidgets('shop exposes Eco Blast and result screen keeps earned stars', (
     WidgetTester tester,
   ) async {
