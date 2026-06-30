@@ -142,13 +142,32 @@ class ArcadeViewport extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool phoneWidth = constraints.maxWidth <= 520;
+        final view = View.of(context);
+        final double viewWidth =
+            view.physicalSize.width / view.devicePixelRatio;
+        final double viewHeight =
+            view.physicalSize.height / view.devicePixelRatio;
+        final double availableWidth = math.min(constraints.maxWidth, viewWidth);
+        final double availableHeight = math.min(
+          constraints.maxHeight,
+          viewHeight,
+        );
+        final bool phoneWidth = availableWidth <= 520;
         final double maxPanelWidth = phoneWidth
-            ? constraints.maxWidth
-            : math.min(430, constraints.maxHeight * 0.58);
+            ? availableWidth
+            : math.min(390, availableHeight * 0.58);
 
         if (phoneWidth) {
-          return child;
+          return ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: availableWidth,
+                height: availableHeight,
+                child: child,
+              ),
+            ),
+          );
         }
 
         return ColoredBox(
@@ -156,7 +175,7 @@ class ArcadeViewport extends StatelessWidget {
           child: Center(
             child: Container(
               width: maxPanelWidth,
-              height: constraints.maxHeight,
+              height: availableHeight,
               decoration: BoxDecoration(
                 color: const Color(0xff061423),
                 border: Border.all(color: const Color(0xff1d3e65), width: 2),
@@ -661,12 +680,14 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   GameView _view = GameView.menu;
   WasteItem? _tutorialItem;
   Size _tutorialSize = Size.zero;
+  double _tutorialDockInset = 0;
   BinType? _tutorialHoverBin;
   BinType? _tutorialSuccessBin;
   double _tutorialSuccessPulse = 0;
   int _tutorialStep = 0;
   bool _tutorialSeen = false;
   Size _playSize = Size.zero;
+  double _playDockInset = 0;
   int _nextItemId = 1;
   int _selectedSkin = 0;
   int _selectedMap = 0;
@@ -1196,16 +1217,21 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   }
 
   int _calculateEarnedStars(int score, int hearts) {
-    if (hearts <= 0 || score <= 0) {
+    if (score <= 0) {
       return 0;
     }
+    final int scoreStars;
     if (score >= 12000) {
-      return 3;
+      scoreStars = 3;
+    } else if (score >= 6000) {
+      scoreStars = 2;
+    } else {
+      scoreStars = 1;
     }
-    if (score >= 6000) {
-      return 2;
+    if (hearts <= 0) {
+      return math.max(1, scoreStars - 1);
     }
-    return 1;
+    return scoreStars;
   }
 
   String get _resultCaption {
@@ -1335,7 +1361,10 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   }
 
   BinType? _binForPosition(Offset position) {
-    final Map<BinType, Rect> rects = _binRects(_playSize);
+    final Map<BinType, Rect> rects = _binRects(
+      _playSize,
+      bottomInset: _playDockInset,
+    );
     for (final MapEntry<BinType, Rect> entry in rects.entries) {
       if (entry.value.inflate(10).contains(position)) {
         return entry.key;
@@ -1451,16 +1480,22 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     }
   }
 
-  Map<BinType, Rect> _binRects(Size size) {
+  double _bottomDockInset(BuildContext context) {
+    final double bottom = MediaQuery.of(context).viewPadding.bottom;
+    return math.max(44, bottom).toDouble();
+  }
+
+  Map<BinType, Rect> _binRects(Size size, {double bottomInset = 0}) {
     if (size == Size.zero) {
       return const <BinType, Rect>{};
     }
     final List<BinType> bins = _binTypes;
-    final double binTop = size.height - 120;
+    final double safeBottom = bottomInset.clamp(0, 96).toDouble();
+    final double binTop = size.height - 140 - safeBottom;
     final double slotWidth = size.width / bins.length;
     return <BinType, Rect>{
       for (int i = 0; i < bins.length; i++)
-        bins[i]: Rect.fromLTWH(i * slotWidth + 5, binTop, slotWidth - 10, 96),
+        bins[i]: Rect.fromLTWH(i * slotWidth + 5, binTop, slotWidth - 10, 104),
     };
   }
 
@@ -1693,7 +1728,10 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     if (_tutorialSize == Size.zero) {
       return null;
     }
-    final Map<BinType, Rect> rects = _binRects(_tutorialSize);
+    final Map<BinType, Rect> rects = _binRects(
+      _tutorialSize,
+      bottomInset: _tutorialDockInset,
+    );
     for (final MapEntry<BinType, Rect> entry in rects.entries) {
       if (entry.value.inflate(12).contains(position)) {
         return entry.key;
@@ -1845,262 +1883,233 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
               _topStatusBar(showBack: false),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
-                  child: Column(
-                    children: <Widget>[
-                      Expanded(
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(9),
-                            border: Border.all(
-                              color: const Color(0xff79acec),
-                              width: 1.2,
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: const Color(0xff83ceff),
+                        width: 1.7,
+                      ),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Colors.black87,
+                          blurRadius: 18,
+                          offset: Offset(0, 10),
+                        ),
+                        BoxShadow(
+                          color: Color(0x6626a4ff),
+                          blurRadius: 18,
+                          spreadRadius: -5,
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.hardEdge,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: <Widget>[
+                        _cleanHomeBackdrop(),
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: <Color>[
+                                  Colors.transparent,
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.18),
+                                  Colors.black.withValues(alpha: 0.42),
+                                ],
+                                stops: const <double>[0, 0.52, 0.78, 1],
+                              ),
                             ),
-                            boxShadow: const <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.black54,
-                                blurRadius: 14,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
                           ),
-                          clipBehavior: Clip.hardEdge,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: <Widget>[
-                              _cleanHomeBackdrop(),
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: AnimatedBuilder(
-                                    animation: _ambientController,
-                                    builder: (BuildContext context, _) {
-                                      return CustomPaint(
-                                        painter: HomeSwirlPainter(
-                                          progress: _ambientController.value,
-                                          skin: _skins[_selectedSkin],
-                                        ),
-                                      );
-                                    },
+                        ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: AnimatedBuilder(
+                              animation: _ambientController,
+                              builder: (BuildContext context, _) {
+                                return CustomPaint(
+                                  painter: HomeSwirlPainter(
+                                    progress: _ambientController.value,
+                                    skin: _skins[_selectedSkin],
                                   ),
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: LayoutBuilder(
-                                    builder:
-                                        (
-                                          BuildContext context,
-                                          BoxConstraints constraints,
-                                        ) {
-                                          final double spriteSize = math.min(
-                                            math.min(
-                                              constraints.maxWidth * 0.62,
-                                              constraints.maxHeight * 0.36,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: _homeFloatingTrashLayer(),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: LayoutBuilder(
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    BoxConstraints constraints,
+                                  ) {
+                                    final double spriteSize = math.min(
+                                      math.min(
+                                        constraints.maxWidth * 0.78,
+                                        constraints.maxHeight * 0.48,
+                                      ),
+                                      440,
+                                    );
+                                    final double centerX =
+                                        constraints.maxWidth * 0.55;
+                                    final double centerY =
+                                        constraints.maxHeight * 0.57;
+                                    return Stack(
+                                      children: <Widget>[
+                                        Positioned(
+                                          left: centerX - spriteSize / 2,
+                                          top: math.max(
+                                            128,
+                                            centerY - spriteSize / 2,
+                                          ),
+                                          child: AnimatedBuilder(
+                                            animation: _ambientController,
+                                            builder:
+                                                (
+                                                  BuildContext context,
+                                                  Widget? child,
+                                                ) {
+                                                  final double bob =
+                                                      math.sin(
+                                                        _ambientController
+                                                                .value *
+                                                            math.pi *
+                                                            2,
+                                                      ) *
+                                                      6;
+                                                  return Transform.translate(
+                                                    offset: Offset(0, bob),
+                                                    child: child,
+                                                  );
+                                                },
+                                            child: _selectedSkinSprite(
+                                              size: spriteSize,
+                                              opacity: 0.99,
                                             ),
-                                            360,
-                                          );
-                                          final double centerX =
-                                              constraints.maxWidth * 0.54;
-                                          final double centerY =
-                                              constraints.maxHeight * 0.62;
-                                          return Stack(
-                                            children: <Widget>[
-                                              Positioned(
-                                                left: centerX - spriteSize / 2,
-                                                top: math.max(
-                                                  122,
-                                                  centerY - spriteSize / 2,
-                                                ),
-                                                child: AnimatedBuilder(
-                                                  animation: _ambientController,
-                                                  builder:
-                                                      (
-                                                        BuildContext context,
-                                                        Widget? child,
-                                                      ) {
-                                                        final double bob =
-                                                            math.sin(
-                                                              _ambientController
-                                                                      .value *
-                                                                  math.pi *
-                                                                  2,
-                                                            ) *
-                                                            5;
-                                                        return Transform.translate(
-                                                          offset: Offset(
-                                                            0,
-                                                            bob,
-                                                          ),
-                                                          child: child,
-                                                        );
-                                                      },
-                                                  child: _selectedSkinSprite(
-                                                    size: spriteSize,
-                                                    opacity: 0.98,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 8,
+                          top: 116,
+                          bottom: 150,
+                          child: _homeMenuRail(),
+                        ),
+                        Positioned(
+                          left: 76,
+                          right: 12,
+                          top: 34,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Transform.rotate(
+                                angle: -0.07,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'TRASH',
+                                    style: _titleStyle(54).copyWith(
+                                      height: 0.82,
+                                      shadows: _logoShadows,
+                                    ),
                                   ),
                                 ),
                               ),
-                              Positioned(
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: _screenTitlePlaque('Main Menu'),
-                                ),
-                              ),
-                              Positioned(
-                                left: 8,
-                                top: 48,
-                                bottom: 74,
-                                child: Column(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: <Widget>[
-                                    _menuRailAction(
-                                      iconAsset: GameArt.sideIconDaily,
-                                      label: 'Daily\nReward',
-                                      onTap: () => _showView(GameView.rewards),
+                              Transform.rotate(
+                                angle: -0.07,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'TORNADO',
+                                    style: _titleStyle(58).copyWith(
+                                      color: const Color(0xffa7ff2f),
+                                      height: 0.82,
+                                      shadows: _logoShadows,
                                     ),
-                                    _menuRailAction(
-                                      iconAsset: GameArt.sideIconMissions,
-                                      label: 'Missions',
-                                      onTap: () => _showView(GameView.modes),
-                                    ),
-                                    _menuRailAction(
-                                      iconAsset: GameArt.sideIconLeaderboard,
-                                      label: 'Leaderboard',
-                                      onTap: () => _showView(GameView.map),
-                                    ),
-                                    _menuRailAction(
-                                      iconAsset: GameArt.sideIconSettings,
-                                      label: 'Settings',
-                                      onTap: () => _showView(GameView.settings),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 78,
-                                right: 18,
-                                top: 38,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Transform.rotate(
-                                      angle: -0.08,
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          'TRASH',
-                                          style: _titleStyle(42).copyWith(
-                                            height: 0.86,
-                                            shadows: _logoShadows,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Transform.rotate(
-                                      angle: -0.08,
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          'TORNADO',
-                                          style: _titleStyle(46).copyWith(
-                                            color: const Color(0xffa7ff2f),
-                                            height: 0.86,
-                                            shadows: _logoShadows,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 60,
-                                right: 60,
-                                bottom: 18,
-                                child: AnimatedBuilder(
-                                  animation: _ambientController,
-                                  builder:
-                                      (BuildContext context, Widget? child) {
-                                        final double pulse =
-                                            1 +
-                                            math.sin(
-                                                  _ambientController.value *
-                                                      math.pi *
-                                                      2,
-                                                ) *
-                                                0.018;
-                                        return Transform.scale(
-                                          scale: pulse,
-                                          child: child,
-                                        );
-                                      },
-                                  child: ArcadeButton(
-                                    label: 'PLAY',
-                                    icon: Icons.play_arrow_rounded,
-                                    color: const Color(0xffffc328),
-                                    foreground: const Color(0xff241300),
-                                    onPressed: () => _tutorialSeen
-                                        ? _startRun()
-                                        : _startTutorial(),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                left: 118,
-                                right: 118,
-                                bottom: 92,
-                                child: SizedBox(
-                                  height: 46,
-                                  child: ArcadeButton(
-                                    label: 'Tutorial',
-                                    icon: Icons.school_rounded,
-                                    compact: true,
-                                    color: const Color(0xff24b8ff),
-                                    onPressed: _startTutorial,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
+                        Positioned(
+                          left: 78,
+                          right: 54,
+                          bottom: 90,
+                          child: AnimatedBuilder(
+                            animation: _ambientController,
+                            builder: (BuildContext context, Widget? child) {
+                              final double pulse =
+                                  1 +
+                                  math.sin(
+                                        _ambientController.value * math.pi * 2,
+                                      ) *
+                                      0.018;
+                              return Transform.scale(
+                                scale: pulse,
+                                child: child,
+                              );
+                            },
                             child: ArcadeButton(
-                              label: 'Store',
-                              icon: Icons.shopping_cart_rounded,
-                              compact: true,
-                              color: const Color(0xff6240bd),
-                              onPressed: () => _showView(GameView.shop),
+                              label: 'PLAY',
+                              icon: Icons.play_arrow_rounded,
+                              color: const Color(0xffffd22d),
+                              foreground: const Color(0xff2f1700),
+                              onPressed: () => _tutorialSeen
+                                  ? _startRun()
+                                  : _startTutorial(),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ArcadeButton(
-                              label: 'Characters',
-                              icon: Icons.cyclone_rounded,
-                              compact: true,
-                              color: const Color(0xff176fd0),
-                              onPressed: () => _showView(GameView.skins),
-                            ),
+                        ),
+                        Positioned(
+                          left: 58,
+                          right: 26,
+                          bottom: 22,
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: ArcadeButton(
+                                  label: 'Store',
+                                  icon: Icons.shopping_cart_rounded,
+                                  compact: true,
+                                  color: const Color(0xff8247e6),
+                                  onPressed: () => _showView(GameView.shop),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: ArcadeButton(
+                                  label: 'Skins',
+                                  icon: Icons.cyclone_rounded,
+                                  compact: true,
+                                  color: const Color(0xff1594f2),
+                                  onPressed: () => _showView(GameView.skins),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -2116,6 +2125,126 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       GameArt.homeBackground,
       alignment: Alignment.topCenter,
       scrim: 0.02,
+    );
+  }
+
+  Widget _homeFloatingTrashLayer() {
+    return AnimatedBuilder(
+      animation: _ambientController,
+      builder: (BuildContext context, _) {
+        final double t = _ambientController.value;
+        return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final Size size = Size(constraints.maxWidth, constraints.maxHeight);
+            return Stack(
+              children: <Widget>[
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashGlassBottle,
+                  x: 0.07,
+                  y: 0.08,
+                  itemSize: 92,
+                  angle: -0.38,
+                  phase: 0.1,
+                ),
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashCardboardBox,
+                  x: 0.72,
+                  y: 0.19,
+                  itemSize: 96,
+                  angle: 0.18,
+                  phase: 0.58,
+                ),
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashCrumpledPaper,
+                  x: 0.26,
+                  y: 0.33,
+                  itemSize: 70,
+                  angle: -0.24,
+                  phase: 0.33,
+                ),
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashBananaPeel,
+                  x: 0.72,
+                  y: 0.39,
+                  itemSize: 68,
+                  angle: 0.14,
+                  phase: 0.81,
+                ),
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashRedSodaCan,
+                  x: 0.80,
+                  y: 0.52,
+                  itemSize: 74,
+                  angle: 0.34,
+                  phase: 0.44,
+                ),
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashPlasticBottleBlue,
+                  x: 0.16,
+                  y: 0.63,
+                  itemSize: 88,
+                  angle: -0.3,
+                  phase: 0.66,
+                ),
+                _homeTrashAsset(
+                  size: size,
+                  progress: t,
+                  asset: GameArt.trashToxicBarrel,
+                  x: 0.78,
+                  y: 0.68,
+                  itemSize: 74,
+                  angle: -0.16,
+                  phase: 0.92,
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _homeTrashAsset({
+    required Size size,
+    required double progress,
+    required String asset,
+    required double x,
+    required double y,
+    required double itemSize,
+    required double angle,
+    required double phase,
+  }) {
+    final double scale = (size.shortestSide / 430).clamp(0.74, 1.14).toDouble();
+    final double bob = math.sin((progress + phase) * math.pi * 2) * 7;
+    final double drift = math.cos((progress + phase) * math.pi * 2) * 5;
+    final double actualSize = itemSize * scale;
+    return Positioned(
+      left: size.width * x - actualSize / 2 + drift,
+      top: size.height * y - actualSize / 2 + bob,
+      child: Transform.rotate(
+        angle: angle + math.sin((progress + phase) * math.pi * 2) * 0.08,
+        child: SizedBox(
+          width: actualSize,
+          height: actualSize,
+          child: Image.asset(
+            asset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          ),
+        ),
+      ),
     );
   }
 
@@ -2166,9 +2295,14 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final Size size = Size(constraints.maxWidth, constraints.maxHeight);
+          final double dockInset = _bottomDockInset(context);
+          _tutorialDockInset = dockInset;
           _ensureTutorialItem(size);
           final WasteItem? item = _tutorialItem;
-          final Map<BinType, Rect> binRects = _binRects(size);
+          final Map<BinType, Rect> binRects = _binRects(
+            size,
+            bottomInset: dockInset,
+          );
           final BinType? activeBin =
               item == null || item.type == WasteType.toxic
               ? null
@@ -2264,6 +2398,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                   successPulse: _tutorialSuccessPulse,
                   hazardWarning: hazardWarning,
                   time: _ambientController.value * 10,
+                  bottomInset: dockInset,
                 ),
               ),
               SafeArea(
@@ -2298,7 +2433,12 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                       const Spacer(),
                       if (_tutorialStep >= 2)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(44, 0, 44, 120),
+                          padding: EdgeInsets.fromLTRB(
+                            44,
+                            0,
+                            44,
+                            120 + dockInset,
+                          ),
                           child: ArcadeButton(
                             label: 'Start Run',
                             icon: Icons.play_arrow_rounded,
@@ -2388,11 +2528,16 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final Size size = Size(constraints.maxWidth, constraints.maxHeight);
+          final double dockInset = _bottomDockInset(context);
+          _playDockInset = dockInset;
           if (_playSize != size) {
             _playSize = size;
           }
           _ensureScreenshotGameplayItems(size);
-          final Map<BinType, Rect> binRects = _binRects(size);
+          final Map<BinType, Rect> binRects = _binRects(
+            size,
+            bottomInset: dockInset,
+          );
           WasteItem? heldItem;
           for (final WasteItem item in _items) {
             if (item.held) {
@@ -2525,6 +2670,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                   successPulse: _successPulse,
                   hazardWarning: hazardWarning,
                   time: _timeLeft,
+                  bottomInset: dockInset,
                 ),
               ),
               Positioned(
@@ -2532,7 +2678,11 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                 top: size.height * 0.43,
                 child: _powerMeter(),
               ),
-              Positioned(right: 10, bottom: 142, child: _ecoBlastButton()),
+              Positioned(
+                right: 10,
+                bottom: 164 + dockInset,
+                child: _ecoBlastButton(),
+              ),
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -2580,7 +2730,10 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Container(
-                            margin: const EdgeInsets.only(left: 6, bottom: 138),
+                            margin: EdgeInsets.only(
+                              left: 6,
+                              bottom: 160 + dockInset,
+                            ),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 10,
@@ -4498,6 +4651,67 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     );
   }
 
+  Widget _homeMenuRail() {
+    final List<Widget> actions = <Widget>[
+      _menuRailAction(
+        iconAsset: GameArt.sideIconDaily,
+        label: 'Daily\nReward',
+        onTap: () => _showView(GameView.rewards),
+      ),
+      _menuRailAction(
+        iconAsset: GameArt.sideIconMissions,
+        label: 'Missions',
+        onTap: () => _showView(GameView.modes),
+      ),
+      _menuRailAction(
+        iconAsset: GameArt.sideIconLeaderboard,
+        label: 'Leaderboard',
+        onTap: () => _showView(GameView.map),
+      ),
+      _menuRailAction(
+        iconAsset: GameArt.sideIconSettings,
+        label: 'Settings',
+        onTap: () => _showView(GameView.settings),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        const double actionWidth = 70;
+        const double actionHeight = 86;
+        const double compactGap = 10;
+        const double compactHeight = actionHeight * 4 + compactGap * 3;
+        if (constraints.maxHeight >= compactHeight) {
+          return SizedBox(
+            width: actionWidth,
+            height: constraints.maxHeight,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: actions,
+            ),
+          );
+        }
+        return SizedBox(
+          width: actionWidth,
+          height: constraints.maxHeight,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                for (int i = 0; i < actions.length; i++) ...<Widget>[
+                  actions[i],
+                  if (i < actions.length - 1)
+                    const SizedBox(height: compactGap),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _menuRailAction({
     required String iconAsset,
     required String label,
@@ -4505,11 +4719,11 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 62,
-        height: 76,
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
+        width: 70,
+        height: 86,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topCenter,
@@ -4520,8 +4734,8 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
               Color(0xff050f1d),
             ],
           ),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xff77b8f0), width: 1.2),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xff86c9ff), width: 1.4),
           boxShadow: const <BoxShadow>[
             BoxShadow(
               color: Colors.black45,
@@ -4535,8 +4749,8 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
           children: <Widget>[
             Image.asset(
               iconAsset,
-              width: 34,
-              height: 34,
+              width: 42,
+              height: 42,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.high,
             ),
@@ -4549,7 +4763,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                 maxLines: 2,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9,
+                  fontSize: 10,
                   height: 0.95,
                   fontWeight: FontWeight.w900,
                   shadows: <Shadow>[
@@ -5329,11 +5543,11 @@ class ArcadeButton extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    left: compact ? 12 : 18,
+                    left: compact ? 10 : 18,
                     top: compact ? 9 : 10,
                     child: Container(
-                      width: compact ? 34 : 44,
-                      height: compact ? 34 : 44,
+                      width: compact ? 32 : 44,
+                      height: compact ? 32 : 44,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: foreground.withValues(
@@ -5361,8 +5575,8 @@ class ArcadeButton extends StatelessWidget {
                   Center(
                     child: Padding(
                       padding: EdgeInsets.only(
-                        left: compact ? 58 : 74,
-                        right: compact ? 16 : 28,
+                        left: compact ? 50 : 74,
+                        right: compact ? 12 : 28,
                         bottom: compact ? 4 : 6,
                       ),
                       child: FittedBox(
@@ -5372,7 +5586,7 @@ class ArcadeButton extends StatelessWidget {
                           maxLines: 1,
                           style: TextStyle(
                             color: foreground,
-                            fontSize: compact ? 17 : 27,
+                            fontSize: compact ? 16 : 27,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0,
                             shadows: <Shadow>[
@@ -6088,6 +6302,7 @@ class BinDock extends StatelessWidget {
     required this.successPulse,
     required this.hazardWarning,
     required this.time,
+    this.bottomInset = 0,
     super.key,
   });
 
@@ -6098,6 +6313,7 @@ class BinDock extends StatelessWidget {
   final double successPulse;
   final bool hazardWarning;
   final double time;
+  final double bottomInset;
 
   @override
   Widget build(BuildContext context) {
@@ -6107,9 +6323,10 @@ class BinDock extends StatelessWidget {
       BinType.paper,
       BinType.hazard,
     ];
+    final double safeBottom = bottomInset.clamp(0, 96).toDouble();
     return Container(
-      height: 126,
-      padding: const EdgeInsets.fromLTRB(5, 6, 5, 24),
+      height: 148 + safeBottom,
+      padding: EdgeInsets.fromLTRB(5, 8, 5, 36 + safeBottom),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
