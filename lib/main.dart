@@ -911,7 +911,8 @@ class GameShell extends StatefulWidget {
   State<GameShell> createState() => _GameShellState();
 }
 
-class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
+class _GameShellState extends State<GameShell>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final math.Random _random = math.Random();
   final List<WasteItem> _items = <WasteItem>[];
   final List<SortBurst> _bursts = <SortBurst>[];
@@ -983,10 +984,13 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
   bool _sfx = true;
   bool _vibration = true;
   bool _powerSaver = false;
+  bool _appInForeground = true;
+  bool _quitDialogOpen = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.screenshotMode) {
       _applyScreenshotSeed();
     }
@@ -1010,13 +1014,32 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    unawaited(_musicPlayer.stop());
+    unawaited(_sfxPlayer.stop());
+    unawaited(_uiPlayer.stop());
     unawaited(_musicPlayer.dispose());
     unawaited(_sfxPlayer.dispose());
     unawaited(_uiPlayer.dispose());
     _ambientController.dispose();
     _celebrationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _appInForeground = true;
+        _syncMusic();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _appInForeground = false;
+        unawaited(_stopAllAudio());
+    }
   }
 
   Future<void> _configureAudio() async {
@@ -1037,7 +1060,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
 
   Future<void> _syncMusicNow() async {
     try {
-      if (!_music) {
+      if (!_music || !_appInForeground) {
         _activeMusicAsset = null;
         await _musicPlayer.stop();
         return;
@@ -1062,6 +1085,15 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     } catch (_) {
       _activeMusicAsset = null;
     }
+  }
+
+  Future<void> _stopAllAudio() async {
+    try {
+      _activeMusicAsset = null;
+      await _musicPlayer.stop();
+      await _sfxPlayer.stop();
+      await _uiPlayer.stop();
+    } catch (_) {}
   }
 
   void _playSfx(String asset, {double volume = 0.72}) {
@@ -2099,32 +2131,200 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _handleBackPressed() async {
+    if (_view == GameView.game || _view == GameView.tutorial) {
+      await _confirmQuitRun();
+      return;
+    }
+    if (_view == GameView.menu) {
+      await _confirmExitApp();
+      return;
+    }
+    _showView(GameView.menu);
+  }
+
+  Future<void> _confirmQuitRun() async {
+    final bool wasPaused = _paused;
+    if (_view == GameView.game && !_paused) {
+      setState(() => _paused = true);
+    }
+    final bool quit = await _showQuitDialog(
+      title: 'Quit Game?',
+      message: 'Do you want to quit the game?',
+      confirmLabel: 'Quit',
+      cancelLabel: 'Keep Playing',
+      confirmColor: const Color(0xffdd3642),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!quit) {
+      if (_view == GameView.game) {
+        setState(() => _paused = wasPaused);
+      }
+      return;
+    }
+    setState(() {
+      _paused = false;
+      _view = GameView.menu;
+      _items.clear();
+      _bursts.clear();
+      _hoverBin = null;
+      _successBin = null;
+      _tutorialItem = null;
+      _tutorialHoverBin = null;
+      _tutorialSuccessBin = null;
+    });
+    _playUiSfx(GameArt.sfxTap, volume: 0.38);
+    _hapticSelection();
+    _syncMusic();
+  }
+
+  Future<void> _confirmExitApp() async {
+    final bool quit = await _showQuitDialog(
+      title: 'Quit Trash Tornado?',
+      message: 'Do you want to quit the game?',
+      confirmLabel: 'Quit',
+      cancelLabel: 'Stay',
+      confirmColor: const Color(0xffdd3642),
+    );
+    if (!quit) {
+      return;
+    }
+    await _stopAllAudio();
+    await SystemNavigator.pop();
+  }
+
+  Future<bool> _showQuitDialog({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required String cancelLabel,
+    required Color confirmColor,
+  }) async {
+    if (_quitDialogOpen || !mounted) {
+      return false;
+    }
+    _quitDialogOpen = true;
+    _playUiSfx(GameArt.sfxTap, volume: 0.32);
+    final bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 330),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[Color(0xff0d3760), Color(0xff041321)],
+              ),
+              border: Border.all(color: const Color(0xff78c7ff), width: 1.4),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 18,
+                  offset: Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  Icons.exit_to_app_rounded,
+                  color: Color(0xffffdf4f),
+                  size: 44,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: _titleStyle(27).copyWith(shadows: _textShadows),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 15,
+                    height: 1.25,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: ArcadeButton(
+                        label: cancelLabel,
+                        icon: Icons.play_arrow_rounded,
+                        compact: true,
+                        color: const Color(0xff1468cc),
+                        onPressed: () => Navigator.of(context).pop(false),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ArcadeButton(
+                        label: confirmLabel,
+                        icon: Icons.home_rounded,
+                        compact: true,
+                        color: confirmColor,
+                        onPressed: () => Navigator.of(context).pop(true),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    _quitDialogOpen = false;
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    switch (_view) {
-      case GameView.game:
-        return _buildGameScreen();
-      case GameView.tutorial:
-        return _buildTutorialScreen();
-      case GameView.complete:
-        return _buildLevelComplete();
-      case GameView.map:
-        return _screenFrame(title: 'World Map', child: _buildMap());
-      case GameView.shop:
-        return _screenFrame(title: 'Shop', child: _buildShop());
-      case GameView.upgrades:
-        return _screenFrame(title: 'Upgrades', child: _buildUpgrades());
-      case GameView.rewards:
-        return _screenFrame(title: 'Daily Rewards', child: _buildRewards());
-      case GameView.skins:
-        return _screenFrame(title: 'Skins', child: _buildSkins());
-      case GameView.settings:
-        return _screenFrame(title: 'Settings', child: _buildSettings());
-      case GameView.modes:
-        return _screenFrame(title: 'Game Modes', child: _buildModes());
-      case GameView.menu:
-        return _buildMenu();
-    }
+    final Widget screen = switch (_view) {
+      GameView.game => _buildGameScreen(),
+      GameView.tutorial => _buildTutorialScreen(),
+      GameView.complete => _buildLevelComplete(),
+      GameView.map => _screenFrame(title: 'World Map', child: _buildMap()),
+      GameView.shop => _screenFrame(title: 'Shop', child: _buildShop()),
+      GameView.upgrades => _screenFrame(
+        title: 'Upgrades',
+        child: _buildUpgrades(),
+      ),
+      GameView.rewards => _screenFrame(
+        title: 'Daily Rewards',
+        child: _buildRewards(),
+      ),
+      GameView.skins => _screenFrame(title: 'Skins', child: _buildSkins()),
+      GameView.settings => _screenFrame(
+        title: 'Settings',
+        child: _buildSettings(),
+      ),
+      GameView.modes => _screenFrame(title: 'Game Modes', child: _buildModes()),
+      GameView.menu => _buildMenu(),
+    };
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop) {
+          unawaited(_handleBackPressed());
+        }
+      },
+      child: screen,
+    );
   }
 
   Widget _buildMenu() {
@@ -2549,7 +2749,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
                         children: <Widget>[
                           _roundIcon(
                             icon: Icons.arrow_back_rounded,
-                            onTap: () => _finishTutorial(startRun: false),
+                            onTap: () => unawaited(_confirmQuitRun()),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -2935,10 +3135,7 @@ class _GameShellState extends State<GameShell> with TickerProviderStateMixin {
             icon: Icons.home_rounded,
             compact: true,
             color: const Color(0xffdd3642),
-            onPressed: () => setState(() {
-              _paused = false;
-              _view = GameView.menu;
-            }),
+            onPressed: () => unawaited(_confirmQuitRun()),
           ),
         ],
       ),
