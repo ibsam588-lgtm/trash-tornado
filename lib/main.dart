@@ -12,7 +12,7 @@ class GameArt {
 
   static const String homeBackground = 'assets/images/mockup_home_clean_bg.png';
   static const String gameplayBackground =
-      'assets/images/mockup_home_clean_bg.png';
+      'assets/images/mockup_gameplay_bg.png';
   static const String worldMapBackground =
       'assets/images/mockup_world_map_bg.png';
   static const String levelCompleteBackground =
@@ -101,6 +101,7 @@ GameView _viewFromShot(String? shot) {
     'upgrades' => GameView.upgrades,
     'rewards' => GameView.rewards,
     'settings' => GameView.settings,
+    'modes' || 'game-modes' => GameView.modes,
     _ => GameView.menu,
   };
 }
@@ -667,15 +668,27 @@ class GameModeOption {
     required this.name,
     required this.caption,
     required this.icon,
+    required this.colors,
     required this.seconds,
     required this.rewardBoost,
+    required this.scoreMultiplier,
+    required this.spawnMultiplier,
+    required this.hazardMultiplier,
+    required this.cleanTarget,
+    required this.starScores,
   });
 
   final String name;
   final String caption;
   final IconData icon;
+  final List<Color> colors;
   final int seconds;
   final double rewardBoost;
+  final double scoreMultiplier;
+  final double spawnMultiplier;
+  final double hazardMultiplier;
+  final int cleanTarget;
+  final List<int> starScores;
 }
 
 class MusicTrackOption {
@@ -833,31 +846,104 @@ const List<GameModeOption> _modes = <GameModeOption>[
     name: 'Classic Mode',
     caption: 'Complete levels and clean the city',
     icon: Icons.recycling_rounded,
+    colors: <Color>[Color(0xff37d961), Color(0xff0f7f46), Color(0xff66d7ff)],
     seconds: 45,
     rewardBoost: 1,
+    scoreMultiplier: 1,
+    spawnMultiplier: 1,
+    hazardMultiplier: 1,
+    cleanTarget: 12,
+    starScores: <int>[900, 2200, 4200],
   ),
   GameModeOption(
     name: 'Time Attack',
     caption: 'Clean as much as you can',
     icon: Icons.timer_rounded,
+    colors: <Color>[Color(0xffffce45), Color(0xffff6d2e), Color(0xff1ccfff)],
     seconds: 30,
     rewardBoost: 1.25,
+    scoreMultiplier: 1.25,
+    spawnMultiplier: 0.72,
+    hazardMultiplier: 0.9,
+    cleanTarget: 10,
+    starScores: <int>[800, 1800, 3200],
   ),
   GameModeOption(
     name: 'Endless Mode',
     caption: 'How long can you survive?',
     icon: Icons.all_inclusive_rounded,
-    seconds: 60,
+    colors: <Color>[Color(0xff9c58ff), Color(0xff1832a3), Color(0xff28f0ff)],
+    seconds: 75,
     rewardBoost: 1.4,
+    scoreMultiplier: 1.12,
+    spawnMultiplier: 0.86,
+    hazardMultiplier: 1.18,
+    cleanTarget: 16,
+    starScores: <int>[1400, 3200, 5600],
   ),
   GameModeOption(
     name: 'Challenge Mode',
     caption: 'Unique challenges every day',
     icon: Icons.emoji_events_rounded,
+    colors: <Color>[Color(0xffffdf47), Color(0xffff8833), Color(0xff111d25)],
     seconds: 40,
     rewardBoost: 1.6,
+    scoreMultiplier: 1.38,
+    spawnMultiplier: 0.78,
+    hazardMultiplier: 1.65,
+    cleanTarget: 9,
+    starScores: <int>[1000, 2400, 4300],
   ),
 ];
+
+@visibleForTesting
+int calculateStarsForRun({
+  required int score,
+  required int hearts,
+  required int sortedCount,
+  required int missedCleanCount,
+  required int toxicHits,
+  required int modeIndex,
+}) {
+  final int safeMode = modeIndex.clamp(0, _modes.length - 1);
+  final GameModeOption mode = _modes[safeMode];
+  if (score <= 0 && sortedCount <= 0) {
+    return 0;
+  }
+  int scoreStars = 0;
+  for (int i = 0; i < mode.starScores.length; i++) {
+    if (score >= mode.starScores[i]) {
+      scoreStars = i + 1;
+    }
+  }
+  final int sortedStars = sortedCount >= mode.cleanTarget
+      ? 3
+      : sortedCount >= (mode.cleanTarget * 0.68).ceil()
+      ? 2
+      : sortedCount >= math.max(3, (mode.cleanTarget * 0.34).ceil())
+      ? 1
+      : 0;
+  int stars = math.max(scoreStars, sortedStars);
+  final bool cleanRun =
+      sortedCount >= mode.cleanTarget &&
+      missedCleanCount == 0 &&
+      toxicHits == 0 &&
+      hearts >= 4;
+  if (cleanRun) {
+    stars = 3;
+  }
+  final int mistakes = missedCleanCount + toxicHits;
+  if (mistakes >= 3 || hearts <= 1) {
+    stars -= 1;
+  }
+  if (hearts <= 0) {
+    stars -= 1;
+  }
+  if (score >= mode.starScores.first && stars <= 0) {
+    stars = 1;
+  }
+  return stars.clamp(0, 3);
+}
 
 const List<UpgradeSpec> _upgrades = <UpgradeSpec>[
   UpgradeSpec(
@@ -967,6 +1053,9 @@ class _GameShellState extends State<GameShell>
   int _lastEarnedStars = 0;
   bool _lastNewRecord = false;
   int _combo = 0;
+  int _sortedCount = 0;
+  int _missedCleanCount = 0;
+  int _toxicHits = 0;
   int _hearts = 5;
   int _coins = 8450;
   int _gems = 320;
@@ -1125,18 +1214,25 @@ class _GameShellState extends State<GameShell>
   void _hapticLight() {
     if (_vibration) {
       unawaited(HapticFeedback.lightImpact().catchError((_) {}));
+      unawaited(HapticFeedback.selectionClick().catchError((_) {}));
     }
   }
 
   void _hapticMedium() {
     if (_vibration) {
       unawaited(HapticFeedback.mediumImpact().catchError((_) {}));
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        unawaited(HapticFeedback.vibrate().catchError((_) {}));
+      }
     }
   }
 
   void _hapticHeavy() {
     if (_vibration) {
       unawaited(HapticFeedback.heavyImpact().catchError((_) {}));
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        unawaited(HapticFeedback.vibrate().catchError((_) {}));
+      }
     }
   }
 
@@ -1167,7 +1263,11 @@ class _GameShellState extends State<GameShell>
       if (_spawnIn <= 0) {
         _spawnItem();
         final int speedLevel = _upgradeLevels['speed'] ?? 1;
-        _spawnIn = math.max(0.34, 0.9 - speedLevel * 0.04 - _score / 50000);
+        final GameModeOption mode = _modes[_selectedMode];
+        _spawnIn = math.max(
+          0.24,
+          (0.9 - speedLevel * 0.04 - _score / 50000) * mode.spawnMultiplier,
+        );
       }
       _powerUpDropIn -= dt;
       if (_powerUpDropIn <= 0 &&
@@ -1223,10 +1323,16 @@ class _GameShellState extends State<GameShell>
     if (_playSize.width < 120 || _playSize.height < 240) {
       return;
     }
-    final double hazardChance = math.max(
-      0.12,
-      0.2 - (_upgradeLevels['capacity'] ?? 1) * 0.008,
-    );
+    final double hazardChance = math
+        .max(
+          0.08,
+          math.min(
+            0.42,
+            (0.2 - (_upgradeLevels['capacity'] ?? 1) * 0.008) *
+                _modes[_selectedMode].hazardMultiplier,
+          ),
+        )
+        .toDouble();
     final bool toxic = _random.nextDouble() < hazardChance;
     final List<WasteType> cleanTypes = _cleanWasteTypes;
     final WasteType type = toxic
@@ -1235,7 +1341,9 @@ class _GameShellState extends State<GameShell>
     final List<String> sprites = _spriteOptions(type);
     final double x = 36 + _random.nextDouble() * (_playSize.width - 72);
     final double wind = (_random.nextDouble() - 0.5) * 46;
-    final double fallSpeed = 72 + _random.nextDouble() * 56 + _score / 800;
+    final double fallSpeed =
+        (72 + _random.nextDouble() * 56 + _score / 800) *
+        math.max(0.9, 1 / _modes[_selectedMode].spawnMultiplier);
     _items.add(
       WasteItem(
         id: _nextItemId++,
@@ -1291,6 +1399,9 @@ class _GameShellState extends State<GameShell>
     _lastEarnedStars = widget.initialView == GameView.complete ? 3 : 0;
     _lastNewRecord = true;
     _combo = 28;
+    _sortedCount = widget.initialView == GameView.complete ? 24 : 18;
+    _missedCleanCount = 0;
+    _toxicHits = 0;
     _hearts = 5;
     _timeLeft = 45;
     _spawnIn = 99;
@@ -1458,6 +1569,9 @@ class _GameShellState extends State<GameShell>
       _celebrationController.reset();
       _score = 0;
       _combo = 0;
+      _sortedCount = 0;
+      _missedCleanCount = 0;
+      _toxicHits = 0;
       _hearts = 5;
       _timeLeft = _modes[chosenMode].seconds + timeLevel * 2;
       _spawnIn = 0.08;
@@ -1470,7 +1584,14 @@ class _GameShellState extends State<GameShell>
   }
 
   void _finishRun() {
-    final int earnedStars = _calculateEarnedStars(_score, _hearts);
+    final int earnedStars = _calculateEarnedStars(
+      _score,
+      _hearts,
+      sortedCount: _sortedCount,
+      missedCleanCount: _missedCleanCount,
+      toxicHits: _toxicHits,
+      modeIndex: _selectedMode,
+    );
     final double boost = _modes[_selectedMode].rewardBoost;
     final int coinsEarned = math.max(90, (_score / 18 * boost).round());
     final int gemsEarned = _score >= 15000 ? 8 : (_score >= 7000 ? 4 : 2);
@@ -1512,22 +1633,22 @@ class _GameShellState extends State<GameShell>
     return _calculateEarnedStars(_score, _hearts);
   }
 
-  int _calculateEarnedStars(int score, int hearts) {
-    if (score <= 0) {
-      return 0;
-    }
-    final int scoreStars;
-    if (score >= 12000) {
-      scoreStars = 3;
-    } else if (score >= 6000) {
-      scoreStars = 2;
-    } else {
-      scoreStars = 1;
-    }
-    if (hearts <= 0) {
-      return math.max(1, scoreStars - 1);
-    }
-    return scoreStars;
+  int _calculateEarnedStars(
+    int score,
+    int hearts, {
+    int? sortedCount,
+    int? missedCleanCount,
+    int? toxicHits,
+    int? modeIndex,
+  }) {
+    return calculateStarsForRun(
+      score: score,
+      hearts: hearts,
+      sortedCount: sortedCount ?? _sortedCount,
+      missedCleanCount: missedCleanCount ?? _missedCleanCount,
+      toxicHits: toxicHits ?? _toxicHits,
+      modeIndex: modeIndex ?? _selectedMode,
+    );
   }
 
   String get _resultCaption {
@@ -1553,6 +1674,11 @@ class _GameShellState extends State<GameShell>
   }
 
   void _damagePlayer({Offset? position, bool toxic = false}) {
+    if (toxic) {
+      _toxicHits += 1;
+    } else {
+      _missedCleanCount += 1;
+    }
     _hearts = math.max(0, _hearts - 1);
     _combo = 0;
     _score = math.max(0, _score - 75);
@@ -1685,14 +1811,18 @@ class _GameShellState extends State<GameShell>
     }
     _items.remove(item);
     _combo += 1;
+    _sortedCount += 1;
     final int powerLevel = _upgradeLevels['power'] ?? 1;
-    final int points = 120 + _combo * 18 + powerLevel * 8;
+    final int points =
+        ((120 + _combo * 18 + powerLevel * 8) *
+                _modes[_selectedMode].scoreMultiplier)
+            .round();
     _score += points;
     _coins += _combo % 5 == 0 ? 8 : 2;
     _successBin = bin;
     _successPulse = 1;
     _playSfx(_combo > 1 ? GameArt.sfxCombo : GameArt.sfxSort, volume: 0.72);
-    _hapticLight();
+    _hapticMedium();
     _bursts.add(
       SortBurst(
         position: item.position,
@@ -1740,10 +1870,14 @@ class _GameShellState extends State<GameShell>
     final int cleanCount = cleared.length - toxicCount;
     _items.removeWhere((WasteItem item) => cleared.contains(item));
 
-    final int points = 220 + cleanCount * 115 + toxicCount * 45;
+    final int points =
+        ((220 + cleanCount * 115 + toxicCount * 45) *
+                _modes[_selectedMode].scoreMultiplier)
+            .round();
     _score += points;
     _coins += math.max(12, cleanCount * 5 + toxicCount * 2);
     _combo = math.max(_combo + math.max(1, cleanCount), 1);
+    _sortedCount += cleanCount;
     _successBin = BinType.recycle;
     _successPulse = 1;
     _playSfx(GameArt.sfxComplete, volume: freePickup ? 0.72 : 0.68);
@@ -2329,264 +2463,244 @@ class _GameShellState extends State<GameShell>
 
   Widget _buildMenu() {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              Color(0xff0b4fa2),
-              Color(0xff062f60),
-              Color(0xff071423),
-            ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          _sceneBackground(
+            GameArt.homeBackground,
+            alignment: Alignment.topCenter,
+            scrim: 0.03,
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              _topStatusBar(showBack: false, bottomPadding: 0),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Colors.black87,
-                          blurRadius: 18,
-                          offset: Offset(0, 10),
-                        ),
-                        BoxShadow(
-                          color: Color(0x6626a4ff),
-                          blurRadius: 18,
-                          spreadRadius: -5,
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.hardEdge,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: <Widget>[
-                        _cleanHomeBackdrop(),
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: <Color>[
-                                  Colors.transparent,
-                                  Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.18),
-                                  Colors.black.withValues(alpha: 0.42),
-                                ],
-                                stops: const <double>[0, 0.52, 0.78, 1],
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[
+                  Colors.black.withValues(alpha: 0.02),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.18),
+                ],
+                stops: const <double>[0, 0.62, 1],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: <Widget>[
+                _topStatusBar(showBack: false, bottomPadding: 0),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+                    child: SizedBox.expand(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: <Color>[
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.08),
+                                    Colors.black.withValues(alpha: 0.24),
+                                  ],
+                                  stops: const <double>[0, 0.52, 0.78, 1],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: AnimatedBuilder(
-                              animation: _ambientController,
-                              builder: (BuildContext context, _) {
-                                return CustomPaint(
-                                  painter: HomeSwirlPainter(
-                                    progress: _ambientController.value,
-                                    skin: _skins[_selectedSkin],
-                                  ),
-                                );
-                              },
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: AnimatedBuilder(
+                                animation: _ambientController,
+                                builder: (BuildContext context, _) {
+                                  return CustomPaint(
+                                    painter: HomeSwirlPainter(
+                                      progress: _ambientController.value,
+                                      skin: _skins[_selectedSkin],
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: LayoutBuilder(
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    BoxConstraints constraints,
-                                  ) {
-                                    final double spriteSize = math.min(
-                                      math.min(
-                                        constraints.maxWidth * 0.78,
-                                        constraints.maxHeight * 0.48,
-                                      ),
-                                      440,
-                                    );
-                                    final double centerX =
-                                        constraints.maxWidth * 0.55;
-                                    final double centerY =
-                                        constraints.maxHeight * 0.57;
-                                    return Stack(
-                                      children: <Widget>[
-                                        Positioned(
-                                          left: centerX - spriteSize / 2,
-                                          top: math.max(
-                                            128,
-                                            centerY - spriteSize / 2,
-                                          ),
-                                          child: AnimatedBuilder(
-                                            animation: _ambientController,
-                                            builder:
-                                                (
-                                                  BuildContext context,
-                                                  Widget? child,
-                                                ) {
-                                                  final double bob =
-                                                      math.sin(
-                                                        _ambientController
-                                                                .value *
-                                                            math.pi *
-                                                            2,
-                                                      ) *
-                                                      6;
-                                                  return Transform.translate(
-                                                    offset: Offset(0, bob),
-                                                    child: child,
-                                                  );
-                                                },
-                                            child: _selectedSkinSprite(
-                                              size: spriteSize,
-                                              opacity: 0.99,
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: LayoutBuilder(
+                                builder:
+                                    (
+                                      BuildContext context,
+                                      BoxConstraints constraints,
+                                    ) {
+                                      final double spriteSize = math.min(
+                                        math.min(
+                                          constraints.maxWidth * 0.78,
+                                          constraints.maxHeight * 0.48,
+                                        ),
+                                        440,
+                                      );
+                                      final double centerX =
+                                          constraints.maxWidth * 0.55;
+                                      final double centerY =
+                                          constraints.maxHeight * 0.57;
+                                      return Stack(
+                                        children: <Widget>[
+                                          Positioned(
+                                            left: centerX - spriteSize / 2,
+                                            top: math.max(
+                                              128,
+                                              centerY - spriteSize / 2,
+                                            ),
+                                            child: AnimatedBuilder(
+                                              animation: _ambientController,
+                                              builder:
+                                                  (
+                                                    BuildContext context,
+                                                    Widget? child,
+                                                  ) {
+                                                    final double bob =
+                                                        math.sin(
+                                                          _ambientController
+                                                                  .value *
+                                                              math.pi *
+                                                              2,
+                                                        ) *
+                                                        6;
+                                                    return Transform.translate(
+                                                      offset: Offset(0, bob),
+                                                      child: child,
+                                                    );
+                                                  },
+                                              child: _selectedSkinSprite(
+                                                size: spriteSize,
+                                                opacity: 0.99,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    );
-                                  },
+                                        ],
+                                      );
+                                    },
+                              ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          left: 8,
-                          top: 116,
-                          bottom: 150,
-                          child: _homeMenuRail(),
-                        ),
-                        Positioned(
-                          left: 76,
-                          right: 12,
-                          top: 34,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Transform.rotate(
-                                angle: -0.07,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'TRASH',
-                                    style: _titleStyle(54).copyWith(
-                                      height: 0.82,
-                                      shadows: _logoShadows,
+                          Positioned(
+                            left: 8,
+                            top: 116,
+                            bottom: 150,
+                            child: _homeMenuRail(),
+                          ),
+                          Positioned(
+                            left: 76,
+                            right: 12,
+                            top: 34,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Transform.rotate(
+                                  angle: -0.07,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'TRASH',
+                                      style: _titleStyle(54).copyWith(
+                                        height: 0.82,
+                                        shadows: _logoShadows,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              Transform.rotate(
-                                angle: -0.07,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'TORNADO',
-                                    style: _titleStyle(58).copyWith(
-                                      color: const Color(0xffa7ff2f),
-                                      height: 0.82,
-                                      shadows: _logoShadows,
+                                Transform.rotate(
+                                  angle: -0.07,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'TORNADO',
+                                      style: _titleStyle(58).copyWith(
+                                        color: const Color(0xffa7ff2f),
+                                        height: 0.82,
+                                        shadows: _logoShadows,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          left: 78,
-                          right: 54,
-                          bottom: 90,
-                          child: AnimatedBuilder(
-                            animation: _ambientController,
-                            builder: (BuildContext context, Widget? child) {
-                              final double pulse =
-                                  1 +
-                                  math.sin(
-                                        _ambientController.value * math.pi * 2,
-                                      ) *
-                                      0.018;
-                              return Transform.scale(
-                                scale: pulse,
-                                child: child,
-                              );
-                            },
-                            child: ArcadeButton(
-                              label: 'PLAY',
-                              icon: Icons.play_arrow_rounded,
-                              color: const Color(0xffffd22d),
-                              foreground: const Color(0xff2f1700),
-                              onPressed: () => _tutorialSeen
-                                  ? _startRun()
-                                  : _startTutorial(),
+                              ],
                             ),
                           ),
-                        ),
-                        Positioned(
-                          left: 58,
-                          right: 26,
-                          bottom: 22,
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: ArcadeButton(
-                                  label: 'Store',
-                                  icon: Icons.shopping_cart_rounded,
-                                  compact: true,
-                                  color: const Color(0xff8247e6),
-                                  onPressed: () => _showView(GameView.shop),
-                                ),
+                          Positioned(
+                            left: 78,
+                            right: 54,
+                            bottom: 90,
+                            child: AnimatedBuilder(
+                              animation: _ambientController,
+                              builder: (BuildContext context, Widget? child) {
+                                final double pulse =
+                                    1 +
+                                    math.sin(
+                                          _ambientController.value *
+                                              math.pi *
+                                              2,
+                                        ) *
+                                        0.018;
+                                return Transform.scale(
+                                  scale: pulse,
+                                  child: child,
+                                );
+                              },
+                              child: ArcadeButton(
+                                label: 'PLAY',
+                                icon: Icons.play_arrow_rounded,
+                                color: const Color(0xffffd22d),
+                                foreground: const Color(0xff2f1700),
+                                onPressed: () => _tutorialSeen
+                                    ? _startRun()
+                                    : _startTutorial(),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: ArcadeButton(
-                                  label: 'Skins',
-                                  icon: Icons.cyclone_rounded,
-                                  compact: true,
-                                  color: const Color(0xff1594f2),
-                                  onPressed: () => _showView(GameView.skins),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Positioned.fill(
-                          child: IgnorePointer(
-                            child: CustomPaint(
-                              painter: HomePanelFramePainter(),
                             ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            left: 58,
+                            right: 26,
+                            bottom: 22,
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: ArcadeButton(
+                                    label: 'Store',
+                                    icon: Icons.shopping_cart_rounded,
+                                    compact: true,
+                                    color: const Color(0xff8247e6),
+                                    onPressed: () => _showView(GameView.shop),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: ArcadeButton(
+                                    label: 'Skins',
+                                    icon: Icons.cyclone_rounded,
+                                    compact: true,
+                                    color: const Color(0xff1594f2),
+                                    onPressed: () => _showView(GameView.skins),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _cleanHomeBackdrop() {
-    return _sceneBackground(
-      GameArt.homeBackground,
-      alignment: Alignment.topCenter,
-      scrim: 0.02,
     );
   }
 
@@ -2656,11 +2770,7 @@ class _GameShellState extends State<GameShell>
           return Stack(
             fit: StackFit.expand,
             children: <Widget>[
-              _sceneBackground(
-                GameArt.gameplayBackground,
-                alignment: Alignment.topCenter,
-                scrim: 0.08,
-              ),
+              _gameplayBackdrop(scrim: 0.08),
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedBuilder(
@@ -2897,11 +3007,7 @@ class _GameShellState extends State<GameShell>
           return Stack(
             fit: StackFit.expand,
             children: <Widget>[
-              _sceneBackground(
-                GameArt.gameplayBackground,
-                alignment: Alignment.topCenter,
-                scrim: 0.02,
-              ),
+              _gameplayBackdrop(scrim: 0.02),
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedBuilder(
@@ -4765,61 +4871,161 @@ class _GameShellState extends State<GameShell>
       itemBuilder: (BuildContext context, int index) {
         final GameModeOption mode = _modes[index];
         final bool selected = _selectedMode == index;
-        return InkWell(
-          onTap: () => setState(() => _selectedMode = index),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: selected
-                    ? const <Color>[Color(0xff19772d), Color(0xff0d5e73)]
-                    : const <Color>[Color(0xff123a64), Color(0xff082848)],
-              ),
+        return AnimatedBuilder(
+          animation: _ambientController,
+          builder: (BuildContext context, _) {
+            return InkWell(
+              onTap: () {
+                setState(() => _selectedMode = index);
+                _playUiSfx(GameArt.sfxTap, volume: 0.34);
+                _hapticSelection();
+              },
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: selected
-                    ? const Color(0xffbaff3d)
-                    : Colors.white.withValues(alpha: 0.18),
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: Row(
-              children: <Widget>[
-                CircleAvatar(
-                  radius: 27,
-                  backgroundColor: Colors.black26,
-                  child: Icon(mode.icon, color: Colors.white, size: 32),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(mode.name, style: _titleStyle(19)),
-                      const SizedBox(height: 4),
-                      Text(
-                        mode.caption,
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected
+                        ? const Color(0xfff4ff48)
+                        : Colors.white.withValues(alpha: 0.22),
+                    width: selected ? 2 : 1,
                   ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: mode.colors.first.withValues(
+                        alpha: selected ? 0.34 : 0.16,
+                      ),
+                      blurRadius: selected ? 18 : 10,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                Icon(
-                  selected
-                      ? Icons.check_circle_rounded
-                      : Icons.play_circle_fill_rounded,
-                  color: selected ? const Color(0xffbaff3d) : Colors.white54,
-                  size: 32,
+                clipBehavior: Clip.hardEdge,
+                child: Stack(
+                  children: <Widget>[
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: ModeBackdropPainter(
+                          modeIndex: index,
+                          colors: mode.colors,
+                          progress: _ambientController.value,
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: <Color>[
+                              mode.colors.first.withValues(alpha: 0.82),
+                              mode.colors[1].withValues(alpha: 0.62),
+                              const Color(0xff061528).withValues(alpha: 0.9),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: <Widget>[
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor: Colors.black38,
+                            child: Icon(
+                              mode.icon,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Text(
+                                        mode.name,
+                                        style: _titleStyle(19),
+                                      ),
+                                    ),
+                                    if (selected)
+                                      const Icon(
+                                        Icons.check_circle_rounded,
+                                        color: Color(0xfff4ff48),
+                                        size: 22,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  mode.caption,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: <Widget>[
+                                    _modeTrait('${mode.seconds}s'),
+                                    _modeTrait('${mode.cleanTarget} clean'),
+                                    _modeTrait(
+                                      '${mode.rewardBoost.toStringAsFixed(1)}x',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 88,
+                            child: ArcadeButton(
+                              label: 'Start',
+                              icon: Icons.play_arrow_rounded,
+                              compact: true,
+                              color: mode.colors.first,
+                              foreground: Colors.white,
+                              onPressed: () => _startRun(mode: index),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
       separatorBuilder: (BuildContext context, int index) =>
           const SizedBox(height: 12),
       itemCount: _modes.length,
+    );
+  }
+
+  Widget _modeTrait(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 
@@ -4861,6 +5067,36 @@ class _GameShellState extends State<GameShell>
           filterQuality: FilterQuality.medium,
         ),
         if (scrim > 0) ColoredBox(color: Colors.black.withValues(alpha: scrim)),
+      ],
+    );
+  }
+
+  Widget _gameplayBackdrop({double scrim = 0.02}) {
+    final GameModeOption mode = _modes[_selectedMode];
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        _sceneBackground(
+          GameArt.gameplayBackground,
+          alignment: Alignment.topCenter,
+          scrim: scrim,
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _ambientController,
+              builder: (BuildContext context, _) {
+                return CustomPaint(
+                  painter: ModeBackdropPainter(
+                    modeIndex: _selectedMode,
+                    colors: mode.colors,
+                    progress: _ambientController.value,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -5380,46 +5616,189 @@ class _NavEntry {
   final GameView view;
 }
 
-class HomePanelFramePainter extends CustomPainter {
-  const HomePanelFramePainter();
+class ModeBackdropPainter extends CustomPainter {
+  const ModeBackdropPainter({
+    required this.modeIndex,
+    required this.colors,
+    required this.progress,
+  });
 
-  static const Color _stroke = Color(0xff83ceff);
-  static const double _width = 1.7;
-  static const double _radius = 22;
+  final int modeIndex;
+  final List<Color> colors;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) {
       return;
     }
-    final double inset = _width / 2;
-    final double radius = math.min(
-      _radius,
-      math.min(size.width, size.height) / 2,
+    final Rect rect = Offset.zero & size;
+    final Color primary = colors.first;
+    final Color secondary = colors.length > 1 ? colors[1] : colors.first;
+    final Color accent = colors.length > 2 ? colors[2] : Colors.white;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            primary.withValues(alpha: 0.16),
+            secondary.withValues(alpha: 0.07),
+            Colors.black.withValues(alpha: modeIndex == 2 ? 0.22 : 0.08),
+          ],
+        ).createShader(rect),
     );
-    final double left = inset;
-    final double right = size.width - inset;
-    final double top = inset;
-    final double bottom = size.height - inset;
+
+    final double phase = progress * math.pi * 2;
+    switch (modeIndex) {
+      case 1:
+        _paintSpeedLines(canvas, size, phase, accent);
+      case 2:
+        _paintEndlessRings(canvas, size, phase, primary, accent);
+      case 3:
+        _paintChallengeHazards(canvas, size, phase, primary, accent);
+      default:
+        _paintClassicBreeze(canvas, size, phase, primary, accent);
+    }
+  }
+
+  void _paintClassicBreeze(
+    Canvas canvas,
+    Size size,
+    double phase,
+    Color primary,
+    Color accent,
+  ) {
     final Paint paint = Paint()
-      ..color = _stroke
-      ..strokeWidth = _width
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2.2
+      ..color = accent.withValues(alpha: 0.24);
+    for (int i = 0; i < 9; i++) {
+      final double y = size.height * (0.12 + i * 0.085);
+      final double drift = math.sin(phase + i * 0.7) * 28;
+      final Path path = Path()
+        ..moveTo(size.width * 0.12 + drift, y)
+        ..quadraticBezierTo(
+          size.width * 0.46,
+          y - 20,
+          size.width * 0.86 - drift,
+          y + 12,
+        );
+      canvas.drawPath(path, paint);
+    }
+    final Paint glow = Paint()
+      ..shader =
+          RadialGradient(
+            colors: <Color>[
+              primary.withValues(alpha: 0.18),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.5, size.height * 0.58),
+              radius: size.width * 0.48,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.5, size.height * 0.58),
+      size.width * 0.48,
+      glow,
+    );
+  }
 
-    final Path frame = Path()
-      ..moveTo(left, top + radius)
-      ..lineTo(left, bottom - radius)
-      ..quadraticBezierTo(left, bottom, left + radius, bottom)
-      ..lineTo(right - radius, bottom)
-      ..quadraticBezierTo(right, bottom, right, bottom - radius)
-      ..lineTo(right, top + radius);
+  void _paintSpeedLines(Canvas canvas, Size size, double phase, Color accent) {
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4
+      ..color = accent.withValues(alpha: 0.3);
+    for (int i = 0; i < 18; i++) {
+      final double t = (progress + i * 0.067) % 1;
+      final double y = size.height * t;
+      final double x = size.width * (0.08 + (i % 6) * 0.17);
+      canvas.drawLine(
+        Offset(x + math.sin(phase + i) * 12, y - 60),
+        Offset(x + 54, y + 42),
+        paint,
+      );
+    }
+  }
 
-    canvas.drawPath(frame, paint);
+  void _paintEndlessRings(
+    Canvas canvas,
+    Size size,
+    double phase,
+    Color primary,
+    Color accent,
+  ) {
+    final Offset center = Offset(size.width * 0.5, size.height * 0.48);
+    for (int i = 0; i < 5; i++) {
+      final double scale = 0.42 + i * 0.13 + math.sin(phase + i) * 0.015;
+      final Rect ring = Rect.fromCenter(
+        center: center,
+        width: size.width * scale,
+        height: size.width * scale * 0.34,
+      );
+      canvas.drawArc(
+        ring,
+        phase * (i.isEven ? 0.35 : -0.25) + i * 0.4,
+        math.pi * 1.45,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 3.2
+          ..color = (i.isEven ? primary : accent).withValues(alpha: 0.23),
+      );
+    }
+  }
+
+  void _paintChallengeHazards(
+    Canvas canvas,
+    Size size,
+    double phase,
+    Color primary,
+    Color accent,
+  ) {
+    final Paint stripe = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..color = primary.withValues(alpha: 0.2);
+    for (int i = 0; i < 10; i++) {
+      final double x = -size.width * 0.2 + i * size.width * 0.17;
+      final double wobble = math.sin(phase + i) * 8;
+      canvas.drawLine(
+        Offset(x + wobble, size.height * 0.1),
+        Offset(x + size.width * 0.36 + wobble, size.height * 0.9),
+        stripe,
+      );
+    }
+    final Paint glow = Paint()
+      ..shader =
+          RadialGradient(
+            colors: <Color>[accent.withValues(alpha: 0.18), Colors.transparent],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.82, size.height * 0.28),
+              radius: size.width * 0.32,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.82, size.height * 0.28),
+      size.width * 0.32,
+      glow,
+    );
   }
 
   @override
-  bool shouldRepaint(HomePanelFramePainter oldDelegate) => false;
+  bool shouldRepaint(ModeBackdropPainter oldDelegate) {
+    return oldDelegate.modeIndex != modeIndex ||
+        oldDelegate.progress != progress ||
+        oldDelegate.colors != colors;
+  }
 }
 
 class HomeSwirlPainter extends CustomPainter {
