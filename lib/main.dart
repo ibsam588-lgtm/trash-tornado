@@ -13,6 +13,14 @@ class GameArt {
   static const String homeBackground = 'assets/images/mockup_home_clean_bg.png';
   static const String gameplayBackground =
       'assets/images/mockup_gameplay_bg.png';
+  static const String modeBackgroundClassic =
+      'assets/images/mode_bg_classic.png';
+  static const String modeBackgroundTimeAttack =
+      'assets/images/mode_bg_time_attack.png';
+  static const String modeBackgroundEndless =
+      'assets/images/mode_bg_endless.png';
+  static const String modeBackgroundChallenge =
+      'assets/images/mode_bg_challenge.png';
   static const String worldMapBackground =
       'assets/images/mockup_world_map_bg.png';
   static const String levelCompleteBackground =
@@ -83,9 +91,11 @@ class GameArt {
 
 void main() {
   final String? shot = Uri.base.queryParameters['shot'];
+  final String? mode = Uri.base.queryParameters['mode'];
   runApp(
     TrashTornadoApp(
       initialView: _viewFromShot(shot),
+      initialMode: _modeFromQuery(mode),
       screenshotMode: shot != null,
     ),
   );
@@ -106,14 +116,37 @@ GameView _viewFromShot(String? shot) {
   };
 }
 
+int _modeFromQuery(String? mode) {
+  if (mode == null || mode.isEmpty) {
+    return 0;
+  }
+  final int? numeric = int.tryParse(mode);
+  if (numeric != null) {
+    return numeric.clamp(0, _modes.length - 1);
+  }
+  final String normalized = mode.toLowerCase().replaceAll(
+    RegExp(r'[^a-z]'),
+    '',
+  );
+  return switch (normalized) {
+    'classic' || 'classicmode' => 0,
+    'time' || 'timeattack' || 'timer' => 1,
+    'endless' || 'endlessmode' => 2,
+    'challenge' || 'challengemode' => 3,
+    _ => 0,
+  };
+}
+
 class TrashTornadoApp extends StatelessWidget {
   const TrashTornadoApp({
     this.initialView = GameView.menu,
+    this.initialMode = 0,
     this.screenshotMode = false,
     super.key,
   });
 
   final GameView initialView;
+  final int initialMode;
   final bool screenshotMode;
 
   @override
@@ -135,6 +168,7 @@ class TrashTornadoApp extends StatelessWidget {
         enabled: kReleaseMode && !screenshotMode,
         child: GameShell(
           initialView: initialView,
+          initialMode: initialMode,
           screenshotMode: screenshotMode,
         ),
       ),
@@ -668,6 +702,7 @@ class GameModeOption {
     required this.name,
     required this.caption,
     required this.icon,
+    required this.backgroundAsset,
     required this.colors,
     required this.seconds,
     required this.rewardBoost,
@@ -681,6 +716,7 @@ class GameModeOption {
   final String name;
   final String caption;
   final IconData icon;
+  final String backgroundAsset;
   final List<Color> colors;
   final int seconds;
   final double rewardBoost;
@@ -1019,11 +1055,17 @@ const List<CityMap> _maps = <CityMap>[
 @visibleForTesting
 int get totalCleanupLevels => _maps.length;
 
+@visibleForTesting
+List<String> get gameModeBackgroundAssets => List<String>.unmodifiable(
+  _modes.map((GameModeOption mode) => mode.backgroundAsset),
+);
+
 const List<GameModeOption> _modes = <GameModeOption>[
   GameModeOption(
     name: 'Classic Mode',
     caption: 'Complete levels and clean the city',
     icon: Icons.recycling_rounded,
+    backgroundAsset: GameArt.modeBackgroundClassic,
     colors: <Color>[Color(0xff37d961), Color(0xff0f7f46), Color(0xff66d7ff)],
     seconds: 45,
     rewardBoost: 1,
@@ -1037,6 +1079,7 @@ const List<GameModeOption> _modes = <GameModeOption>[
     name: 'Time Attack',
     caption: 'Clean as much as you can',
     icon: Icons.timer_rounded,
+    backgroundAsset: GameArt.modeBackgroundTimeAttack,
     colors: <Color>[Color(0xffffce45), Color(0xffff6d2e), Color(0xff1ccfff)],
     seconds: 30,
     rewardBoost: 1.25,
@@ -1050,6 +1093,7 @@ const List<GameModeOption> _modes = <GameModeOption>[
     name: 'Endless Mode',
     caption: 'How long can you survive?',
     icon: Icons.all_inclusive_rounded,
+    backgroundAsset: GameArt.modeBackgroundEndless,
     colors: <Color>[Color(0xff9c58ff), Color(0xff1832a3), Color(0xff28f0ff)],
     seconds: 75,
     rewardBoost: 1.4,
@@ -1063,6 +1107,7 @@ const List<GameModeOption> _modes = <GameModeOption>[
     name: 'Challenge Mode',
     caption: 'Unique challenges every day',
     icon: Icons.emoji_events_rounded,
+    backgroundAsset: GameArt.modeBackgroundChallenge,
     colors: <Color>[Color(0xffffdf47), Color(0xffff8833), Color(0xff111d25)],
     seconds: 40,
     rewardBoost: 1.6,
@@ -1164,11 +1209,13 @@ const List<UpgradeSpec> _upgrades = <UpgradeSpec>[
 class GameShell extends StatefulWidget {
   const GameShell({
     this.initialView = GameView.menu,
+    this.initialMode = 0,
     this.screenshotMode = false,
     super.key,
   });
 
   final GameView initialView;
+  final int initialMode;
   final bool screenshotMode;
 
   @override
@@ -1258,6 +1305,7 @@ class _GameShellState extends State<GameShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _selectedMode = widget.initialMode.clamp(0, _modes.length - 1);
     if (widget.screenshotMode) {
       _applyScreenshotSeed();
     }
@@ -1560,6 +1608,7 @@ class _GameShellState extends State<GameShell>
     _music = false;
     _sfx = false;
     _vibration = false;
+    _selectedMode = widget.initialMode.clamp(0, _modes.length - 1);
     _selectedSkin = switch (widget.initialView) {
       GameView.game => 1,
       GameView.complete => 4,
@@ -5107,6 +5156,14 @@ class _GameShellState extends State<GameShell>
                 child: Stack(
                   children: <Widget>[
                     Positioned.fill(
+                      child: Image.asset(
+                        mode.backgroundAsset,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        filterQuality: FilterQuality.medium,
+                      ),
+                    ),
+                    Positioned.fill(
                       child: CustomPaint(
                         painter: ModeBackdropPainter(
                           modeIndex: index,
@@ -5119,10 +5176,12 @@ class _GameShellState extends State<GameShell>
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                             colors: <Color>[
-                              mode.colors.first.withValues(alpha: 0.82),
-                              mode.colors[1].withValues(alpha: 0.62),
-                              const Color(0xff061528).withValues(alpha: 0.9),
+                              const Color(0xff03101d).withValues(alpha: 0.86),
+                              mode.colors[1].withValues(alpha: 0.52),
+                              const Color(0xff061528).withValues(alpha: 0.54),
                             ],
                           ),
                         ),
@@ -5276,24 +5335,27 @@ class _GameShellState extends State<GameShell>
 
   Widget _gameplayBackdrop({double scrim = 0.02}) {
     final GameModeOption mode = _modes[_selectedMode];
-    final CityMap map = _maps[_selectedMap];
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
+        _sceneBackground(
+          mode.backgroundAsset,
+          alignment: Alignment.topCenter,
+          scrim: 0,
+        ),
         Positioned.fill(
-          child: IgnorePointer(
-            child: AnimatedBuilder(
-              animation: _ambientController,
-              builder: (BuildContext context, _) {
-                return CustomPaint(
-                  painter: CleanGameplayBackdropPainter(
-                    map: map,
-                    mode: mode,
-                    progress: _ambientController.value,
-                    scrim: scrim,
-                  ),
-                );
-              },
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[
+                  Colors.black.withValues(alpha: 0.02),
+                  Colors.black.withValues(alpha: 0.0),
+                  Colors.black.withValues(alpha: 0.22),
+                ],
+                stops: const <double>[0, 0.55, 1],
+              ),
             ),
           ),
         ),
@@ -5313,6 +5375,7 @@ class _GameShellState extends State<GameShell>
             ),
           ),
         ),
+        if (scrim > 0) ColoredBox(color: Colors.black.withValues(alpha: scrim)),
       ],
     );
   }

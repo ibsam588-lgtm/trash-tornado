@@ -7,6 +7,15 @@ void main() {
     expect(totalCleanupLevels, greaterThanOrEqualTo(30));
   });
 
+  test('each game mode has a unique gameplay background', () {
+    expect(gameModeBackgroundAssets, hasLength(4));
+    expect(gameModeBackgroundAssets.toSet(), hasLength(4));
+    expect(
+      gameModeBackgroundAssets,
+      everyElement(contains('assets/images/mode_bg_')),
+    );
+  });
+
   test('clean sorting target earns three stars even with modest score', () {
     expect(
       calculateStarsForRun(
