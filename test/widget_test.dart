@@ -8,8 +8,8 @@ void main() {
   });
 
   test('each game mode has a unique gameplay background', () {
-    expect(gameModeBackgroundAssets, hasLength(4));
-    expect(gameModeBackgroundAssets.toSet(), hasLength(4));
+    expect(gameModeBackgroundAssets, hasLength(3));
+    expect(gameModeBackgroundAssets.toSet(), hasLength(3));
     expect(
       gameModeBackgroundAssets,
       everyElement(contains('assets/images/mode_bg_')),
@@ -91,6 +91,27 @@ void main() {
     );
   });
 
+  test('falling trash scores when it crosses its correct bin', () {
+    const Size playSize = Size(400, 800);
+
+    expect(
+      fallingPathAutoSortsForTesting(
+        type: WasteType.paper,
+        size: playSize,
+        path: <Offset>[const Offset(250, 610), const Offset(250, 720)],
+      ),
+      isTrue,
+    );
+    expect(
+      fallingPathAutoSortsForTesting(
+        type: WasteType.paper,
+        size: playSize,
+        path: <Offset>[const Offset(50, 610), const Offset(50, 720)],
+      ),
+      isFalse,
+    );
+  });
+
   testWidgets('Trash Tornado opens menu and navigates core screens', (
     WidgetTester tester,
   ) async {
@@ -141,14 +162,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 120));
 
     expect(find.text('GAME MODES'), findsOneWidget);
-    expect(find.text('Time Attack'), findsOneWidget);
-    expect(find.text('30S'), findsOneWidget);
+    expect(find.text('Medium Mode'), findsOneWidget);
+    expect(find.text('37S'), findsOneWidget);
 
     await tester.tap(find.text('START').at(1));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
-    expect(find.text('38'), findsOneWidget);
+    expect(find.text('45'), findsOneWidget);
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
   });
 

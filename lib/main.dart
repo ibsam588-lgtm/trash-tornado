@@ -129,10 +129,19 @@ int _modeFromQuery(String? mode) {
     '',
   );
   return switch (normalized) {
-    'classic' || 'classicmode' => 0,
-    'time' || 'timeattack' || 'timer' => 1,
-    'endless' || 'endlessmode' => 2,
-    'challenge' || 'challengemode' => 3,
+    'easy' || 'easymode' || 'classic' || 'classicmode' => 0,
+    'medium' ||
+    'mediummode' ||
+    'normal' ||
+    'time' ||
+    'timeattack' ||
+    'timer' => 1,
+    'hard' ||
+    'hardmode' ||
+    'challenge' ||
+    'challengemode' ||
+    'endless' ||
+    'endlessmode' => 2,
     _ => 0,
   };
 }
@@ -775,6 +784,22 @@ BinType? binHitByReleasePathForTesting({
   );
 }
 
+@visibleForTesting
+bool fallingPathAutoSortsForTesting({
+  required WasteType type,
+  required Size size,
+  required List<Offset> path,
+  double bottomInset = 0,
+}) {
+  return _binHitByPath(
+        size,
+        path,
+        bottomInset: bottomInset,
+        preferredBin: type.bin,
+      ) ==
+      type.bin;
+}
+
 class SortBurst {
   SortBurst({
     required this.position,
@@ -1188,60 +1213,46 @@ List<String> get gameModeBackgroundAssets => List<String>.unmodifiable(
 
 const List<GameModeOption> _modes = <GameModeOption>[
   GameModeOption(
-    name: 'Classic Mode',
-    caption: 'Complete levels and clean the city',
-    icon: Icons.recycling_rounded,
+    name: 'Easy Mode',
+    caption: 'Slower drops and fewer hazards',
+    icon: Icons.eco_rounded,
     backgroundAsset: GameArt.modeBackgroundClassic,
     colors: <Color>[Color(0xff37d961), Color(0xff0f7f46), Color(0xff66d7ff)],
-    seconds: 45,
+    seconds: 52,
     rewardBoost: 1,
-    scoreMultiplier: 1,
-    spawnMultiplier: 1,
-    hazardMultiplier: 1,
-    cleanTarget: 12,
-    starScores: <int>[900, 2200, 4200],
-  ),
-  GameModeOption(
-    name: 'Time Attack',
-    caption: 'Clean as much as you can',
-    icon: Icons.timer_rounded,
-    backgroundAsset: GameArt.modeBackgroundTimeAttack,
-    colors: <Color>[Color(0xffffce45), Color(0xffff6d2e), Color(0xff1ccfff)],
-    seconds: 30,
-    rewardBoost: 1.25,
-    scoreMultiplier: 1.25,
-    spawnMultiplier: 0.72,
-    hazardMultiplier: 0.9,
+    scoreMultiplier: 0.95,
+    spawnMultiplier: 1.18,
+    hazardMultiplier: 0.65,
     cleanTarget: 10,
-    starScores: <int>[800, 1800, 3200],
+    starScores: <int>[650, 1500, 2800],
   ),
   GameModeOption(
-    name: 'Endless Mode',
-    caption: 'How long can you survive?',
-    icon: Icons.all_inclusive_rounded,
-    backgroundAsset: GameArt.modeBackgroundEndless,
-    colors: <Color>[Color(0xff9c58ff), Color(0xff1832a3), Color(0xff28f0ff)],
-    seconds: 75,
-    rewardBoost: 1.4,
+    name: 'Medium Mode',
+    caption: 'Balanced speed and rewards',
+    icon: Icons.speed_rounded,
+    backgroundAsset: GameArt.modeBackgroundTimeAttack,
+    colors: <Color>[Color(0xff24c9ff), Color(0xff126fe8), Color(0xffffdc4d)],
+    seconds: 37,
+    rewardBoost: 1.25,
     scoreMultiplier: 1.12,
-    spawnMultiplier: 0.86,
-    hazardMultiplier: 1.18,
-    cleanTarget: 16,
-    starScores: <int>[1400, 3200, 5600],
+    spawnMultiplier: 0.95,
+    hazardMultiplier: 1,
+    cleanTarget: 14,
+    starScores: <int>[900, 2100, 3800],
   ),
   GameModeOption(
-    name: 'Challenge Mode',
-    caption: 'Unique challenges every day',
-    icon: Icons.emoji_events_rounded,
+    name: 'Hard Mode',
+    caption: 'Fast drops and more hazards',
+    icon: Icons.local_fire_department_rounded,
     backgroundAsset: GameArt.modeBackgroundChallenge,
-    colors: <Color>[Color(0xffffdf47), Color(0xffff8833), Color(0xff111d25)],
-    seconds: 40,
-    rewardBoost: 1.6,
-    scoreMultiplier: 1.38,
-    spawnMultiplier: 0.78,
-    hazardMultiplier: 1.65,
-    cleanTarget: 9,
-    starScores: <int>[1000, 2400, 4300],
+    colors: <Color>[Color(0xffffe14a), Color(0xffff6b25), Color(0xff6d35ff)],
+    seconds: 30,
+    rewardBoost: 1.65,
+    scoreMultiplier: 1.32,
+    spawnMultiplier: 0.72,
+    hazardMultiplier: 1.55,
+    cleanTarget: 18,
+    starScores: <int>[1300, 3000, 5200],
   ),
 ];
 
@@ -1629,15 +1640,32 @@ class _GameShellState extends State<GameShell>
       }
 
       final List<WasteItem> removed = <WasteItem>[];
+      final List<MapEntry<WasteItem, BinType>> autoCaught =
+          <MapEntry<WasteItem, BinType>>[];
       final Offset tornadoCenter = Offset(
         _playSize.width / 2,
         _playSize.height * 0.55,
       );
       for (final WasteItem item in _items) {
+        final bool falling = !item.held;
+        final Offset previousPosition = item.position;
         if (!item.held) {
           _rememberTrailPoint(item);
           item.position += item.velocity * dt;
           item.spin += dt * (item.type == WasteType.toxic ? 5 : 3);
+        }
+
+        if (falling && _isSortableWaste(item)) {
+          final BinType? caughtBin = _binHitByPath(
+            _playSize,
+            <Offset>[previousPosition, item.position],
+            bottomInset: _playDockInset,
+            preferredBin: item.type.bin,
+          );
+          if (caughtBin == item.type.bin) {
+            autoCaught.add(MapEntry<WasteItem, BinType>(item, caughtBin!));
+            continue;
+          }
         }
 
         if (_isToxicObstacle(item) &&
@@ -1651,7 +1679,16 @@ class _GameShellState extends State<GameShell>
           }
         }
       }
-      _items.removeWhere(removed.contains);
+      final Set<WasteItem> autoCaughtItems = autoCaught
+          .map((MapEntry<WasteItem, BinType> entry) => entry.key)
+          .toSet();
+      _items.removeWhere(
+        (WasteItem item) =>
+            removed.contains(item) || autoCaughtItems.contains(item),
+      );
+      for (final MapEntry<WasteItem, BinType> entry in autoCaught) {
+        _awardSortedItem(entry.key, entry.value, auto: true);
+      }
       for (final SortBurst burst in _bursts) {
         burst.age += dt;
         burst.position += Offset(0, -34 * dt);
@@ -2199,6 +2236,10 @@ class _GameShellState extends State<GameShell>
       return;
     }
     _items.remove(item);
+    _awardSortedItem(item, bin, auto: false);
+  }
+
+  void _awardSortedItem(WasteItem item, BinType bin, {required bool auto}) {
     _combo += 1;
     _sortedCount += 1;
     final int powerLevel = _upgradeLevels['power'] ?? 1;
@@ -2210,13 +2251,20 @@ class _GameShellState extends State<GameShell>
     _coins += _combo % 5 == 0 ? 8 : 2;
     _successBin = bin;
     _successPulse = 1;
-    _playSfx(_combo > 1 ? GameArt.sfxCombo : GameArt.sfxSort, volume: 0.72);
-    _hapticMedium();
+    _playSfx(
+      _combo > 1 ? GameArt.sfxCombo : GameArt.sfxSort,
+      volume: auto ? 0.62 : 0.72,
+    );
+    if (auto) {
+      _hapticSelection();
+    } else {
+      _hapticMedium();
+    }
     _bursts.add(
       SortBurst(
         position: item.position,
-        label: '+$points',
-        color: const Color(0xffffd33d),
+        label: auto ? 'CATCH +$points' : '+$points',
+        color: auto ? const Color(0xffbaff3d) : const Color(0xffffd33d),
       ),
     );
     if (_combo > 1) {
