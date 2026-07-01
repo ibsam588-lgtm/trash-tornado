@@ -41,6 +41,38 @@ void main() {
     );
   });
 
+  test(
+    'hazard bin receives sortable hazard waste while barrels stay avoid-only',
+    () {
+      final WasteItem hazardWaste = WasteItem(
+        id: 1,
+        type: WasteType.toxic,
+        asset: GameArt.trashToxicBarrel,
+        position: Offset.zero,
+        velocity: Offset.zero,
+        size: 64,
+        spin: 0,
+      );
+      final WasteItem toxicBarrel = WasteItem(
+        id: 2,
+        type: WasteType.toxic,
+        kind: DropKind.toxicBarrel,
+        asset: GameArt.trashToxicBarrel,
+        position: Offset.zero,
+        velocity: Offset.zero,
+        size: 72,
+        spin: 0,
+      );
+
+      expect(sortableWasteTypesForTesting, contains(WasteType.toxic));
+      expect(hazardWaste.type.bin, BinType.hazard);
+      expect(isSortableWasteForTesting(hazardWaste), isTrue);
+      expect(isToxicObstacleForTesting(hazardWaste), isFalse);
+      expect(isSortableWasteForTesting(toxicBarrel), isFalse);
+      expect(isToxicObstacleForTesting(toxicBarrel), isTrue);
+    },
+  );
+
   testWidgets('Trash Tornado opens menu and navigates core screens', (
     WidgetTester tester,
   ) async {

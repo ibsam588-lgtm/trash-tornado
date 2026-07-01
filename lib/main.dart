@@ -514,7 +514,7 @@ enum WasteType { plastic, metal, paper, glass, food, toxic }
 
 enum BinType { organic, recycle, paper, hazard }
 
-enum DropKind { waste, ecoBlast }
+enum DropKind { waste, toxicBarrel, ecoBlast }
 
 extension WasteInfo on WasteType {
   String get label {
@@ -648,6 +648,28 @@ class WasteItem {
   bool held = false;
   final List<Offset> trail = <Offset>[];
 }
+
+const List<WasteType> _sortableWasteTypes = <WasteType>[
+  WasteType.plastic,
+  WasteType.metal,
+  WasteType.paper,
+  WasteType.glass,
+  WasteType.food,
+  WasteType.toxic,
+];
+
+bool _isSortableWaste(WasteItem item) => item.kind == DropKind.waste;
+
+bool _isToxicObstacle(WasteItem item) => item.kind == DropKind.toxicBarrel;
+
+@visibleForTesting
+List<WasteType> get sortableWasteTypesForTesting => _sortableWasteTypes;
+
+@visibleForTesting
+bool isSortableWasteForTesting(WasteItem item) => _isSortableWaste(item);
+
+@visibleForTesting
+bool isToxicObstacleForTesting(WasteItem item) => _isToxicObstacle(item);
 
 class SortBurst {
   SortBurst({
@@ -1514,14 +1536,13 @@ class _GameShellState extends State<GameShell>
           item.spin += dt * (item.type == WasteType.toxic ? 5 : 3);
         }
 
-        if (item.kind == DropKind.waste &&
-            item.type == WasteType.toxic &&
+        if (_isToxicObstacle(item) &&
             (item.position - tornadoCenter).distance < item.size * 0.85) {
           removed.add(item);
           _damagePlayer(position: item.position, toxic: true);
         } else if (item.position.dy > _playSize.height + 70) {
           removed.add(item);
-          if (item.kind == DropKind.waste && item.type != WasteType.toxic) {
+          if (_isSortableWaste(item)) {
             _damagePlayer(position: item.position);
           }
         }
@@ -1559,11 +1580,11 @@ class _GameShellState extends State<GameShell>
           ),
         )
         .toDouble();
-    final bool toxic = _random.nextDouble() < hazardChance;
-    final List<WasteType> cleanTypes = _cleanWasteTypes;
-    final WasteType type = toxic
+    final bool toxicBarrel = _random.nextDouble() < hazardChance;
+    final List<WasteType> sortableTypes = _cleanWasteTypes;
+    final WasteType type = toxicBarrel
         ? WasteType.toxic
-        : cleanTypes[_random.nextInt(cleanTypes.length)];
+        : sortableTypes[_random.nextInt(sortableTypes.length)];
     final List<String> sprites = _spriteOptions(type);
     final double x = 36 + _random.nextDouble() * (_playSize.width - 72);
     final double wind = (_random.nextDouble() - 0.5) * 46;
@@ -1574,10 +1595,17 @@ class _GameShellState extends State<GameShell>
       WasteItem(
         id: _nextItemId++,
         type: type,
+        kind: toxicBarrel ? DropKind.toxicBarrel : DropKind.waste,
         asset: sprites[_random.nextInt(sprites.length)],
         position: Offset(x, -44),
         velocity: Offset(wind, fallSpeed),
-        size: (type == WasteType.toxic ? 72 : 58) + _random.nextDouble() * 18,
+        size:
+            (toxicBarrel
+                ? 72
+                : type == WasteType.toxic
+                ? 62
+                : 58) +
+            _random.nextDouble() * 18,
         spin: _random.nextDouble() * math.pi,
       ),
     );
@@ -1693,6 +1721,7 @@ class _GameShellState extends State<GameShell>
         WasteItem(
           id: 9005,
           type: WasteType.toxic,
+          kind: DropKind.toxicBarrel,
           asset: GameArt.trashToxicBarrel,
           position: Offset(size.width * 0.28, size.height * 0.53),
           velocity: Offset.zero,
@@ -1701,6 +1730,15 @@ class _GameShellState extends State<GameShell>
         ),
         WasteItem(
           id: 9006,
+          type: WasteType.toxic,
+          asset: GameArt.trashToxicBarrel,
+          position: Offset(size.width * 0.84, size.height * 0.54),
+          velocity: Offset.zero,
+          size: 66,
+          spin: 0.42,
+        )..held = true,
+        WasteItem(
+          id: 9007,
           type: WasteType.plastic,
           asset: GameArt.trashPlasticBottleBlue,
           position: Offset(size.width * 0.72, size.height * 0.63),
@@ -1709,7 +1747,7 @@ class _GameShellState extends State<GameShell>
           spin: 0.35,
         ),
         WasteItem(
-          id: 9007,
+          id: 9008,
           type: WasteType.food,
           kind: DropKind.ecoBlast,
           asset: GameArt.iconEnergy,
@@ -1724,6 +1762,11 @@ class _GameShellState extends State<GameShell>
       Offset(size.width * 0.47, size.height * 0.44),
       Offset(size.width * 0.51, size.height * 0.40),
       _items[2].position,
+    ]);
+    _items[5].trail.addAll(<Offset>[
+      Offset(size.width * 0.74, size.height * 0.68),
+      Offset(size.width * 0.8, size.height * 0.6),
+      _items[5].position,
     ]);
     _bursts
       ..clear()
@@ -1934,7 +1977,7 @@ class _GameShellState extends State<GameShell>
       setState(() => _collectEcoBlast(_items[index]));
       return;
     }
-    if (_items[index].type == WasteType.toxic) {
+    if (_isToxicObstacle(_items[index])) {
       setState(() {
         final Offset hitPosition = _items[index].position;
         _bursts.add(
@@ -1961,9 +2004,7 @@ class _GameShellState extends State<GameShell>
 
   void _dragItem(int id, DragUpdateDetails details) {
     final int index = _items.indexWhere((WasteItem item) => item.id == id);
-    if (index == -1 ||
-        _items[index].kind != DropKind.waste ||
-        _items[index].type == WasteType.toxic) {
+    if (index == -1 || !_isSortableWaste(_items[index])) {
       return;
     }
     setState(() {
@@ -2036,7 +2077,7 @@ class _GameShellState extends State<GameShell>
   }
 
   void _collectItem(WasteItem item, BinType bin) {
-    if (item.kind != DropKind.waste) {
+    if (!_isSortableWaste(item)) {
       return;
     }
     _items.remove(item);
@@ -2092,22 +2133,24 @@ class _GameShellState extends State<GameShell>
 
   void _activateEcoBlast(Offset origin, {required bool freePickup}) {
     final List<WasteItem> cleared = _items
-        .where((WasteItem item) => item.kind == DropKind.waste)
+        .where(
+          (WasteItem item) => _isSortableWaste(item) || _isToxicObstacle(item),
+        )
         .toList(growable: false);
-    final int toxicCount = cleared
-        .where((WasteItem item) => item.type == WasteType.toxic)
+    final int obstacleCount = cleared
+        .where((WasteItem item) => _isToxicObstacle(item))
         .length;
-    final int cleanCount = cleared.length - toxicCount;
+    final int sortedCount = cleared.length - obstacleCount;
     _items.removeWhere((WasteItem item) => cleared.contains(item));
 
     final int points =
-        ((220 + cleanCount * 115 + toxicCount * 45) *
+        ((220 + sortedCount * 115 + obstacleCount * 45) *
                 _modes[_selectedMode].scoreMultiplier)
             .round();
     _score += points;
-    _coins += math.max(12, cleanCount * 5 + toxicCount * 2);
-    _combo = math.max(_combo + math.max(1, cleanCount), 1);
-    _sortedCount += cleanCount;
+    _coins += math.max(12, sortedCount * 5 + obstacleCount * 2);
+    _combo = math.max(_combo + math.max(1, sortedCount), 1);
+    _sortedCount += sortedCount;
     _successBin = BinType.recycle;
     _successPulse = 1;
     _playSfx(GameArt.sfxComplete, volume: freePickup ? 0.72 : 0.68);
@@ -2132,7 +2175,7 @@ class _GameShellState extends State<GameShell>
         SortBurst(
           position: item.position,
           label: 'CLEAR',
-          color: item.type == WasteType.toxic
+          color: _isToxicObstacle(item)
               ? const Color(0xffff7483)
               : const Color(0xff7dffba),
         ),
@@ -2159,13 +2202,7 @@ class _GameShellState extends State<GameShell>
     };
   }
 
-  List<WasteType> get _cleanWasteTypes => const <WasteType>[
-    WasteType.plastic,
-    WasteType.metal,
-    WasteType.paper,
-    WasteType.glass,
-    WasteType.food,
-  ];
+  List<WasteType> get _cleanWasteTypes => _sortableWasteTypes;
 
   List<BinType> get _binTypes => const <BinType>[
     BinType.organic,
@@ -2365,6 +2402,7 @@ class _GameShellState extends State<GameShell>
     _tutorialItem = WasteItem(
       id: -100 - _tutorialStep,
       type: type,
+      kind: type == WasteType.toxic ? DropKind.toxicBarrel : DropKind.waste,
       asset: _spriteOptions(type).first,
       position: Offset(size.width * 0.5, size.height * 0.27),
       velocity: Offset.zero,
@@ -2405,7 +2443,7 @@ class _GameShellState extends State<GameShell>
     if (item == null) {
       return;
     }
-    if (item.type == WasteType.toxic) {
+    if (_isToxicObstacle(item)) {
       _playSfx(GameArt.sfxBarrel, volume: 0.42);
       _hapticHeavy();
       setState(() {
@@ -2431,7 +2469,7 @@ class _GameShellState extends State<GameShell>
 
   void _dragTutorialItem(DragUpdateDetails details) {
     final WasteItem? item = _tutorialItem;
-    if (item == null || item.type == WasteType.toxic) {
+    if (item == null || !_isSortableWaste(item)) {
       return;
     }
     setState(() {
@@ -2443,7 +2481,7 @@ class _GameShellState extends State<GameShell>
 
   void _releaseTutorialItem(DragEndDetails details) {
     final WasteItem? item = _tutorialItem;
-    if (item == null || item.type == WasteType.toxic) {
+    if (item == null || !_isSortableWaste(item)) {
       return;
     }
     final BinType? target = _tutorialBinForPosition(item.position);
@@ -2989,14 +3027,13 @@ class _GameShellState extends State<GameShell>
             size,
             bottomInset: dockInset,
           );
-          final BinType? activeBin =
-              item == null || item.type == WasteType.toxic
+          final BinType? activeBin = item == null || !_isSortableWaste(item)
               ? null
               : item.type.bin;
           final Offset? target = activeBin == null
               ? null
               : binRects[activeBin]?.center;
-          final bool hazardWarning = item?.type == WasteType.toxic;
+          final bool hazardWarning = item != null && _isToxicObstacle(item);
           return Stack(
             fit: StackFit.expand,
             children: <Widget>[
@@ -3052,7 +3089,7 @@ class _GameShellState extends State<GameShell>
                     child: WasteToken(item: item),
                   ),
                 ),
-              if (item != null && item.type == WasteType.toxic)
+              if (item != null && _isToxicObstacle(item))
                 Positioned(
                   left: (item.position.dx - 42).clamp(8, size.width - 92),
                   top: (item.position.dy - 72).clamp(58, size.height - 180),
@@ -3227,12 +3264,12 @@ class _GameShellState extends State<GameShell>
               break;
             }
           }
-          final BinType? activeBin = heldItem?.kind == DropKind.waste
-              ? heldItem?.type.bin
+          final BinType? activeBin =
+              heldItem != null && _isSortableWaste(heldItem)
+              ? heldItem.type.bin
               : null;
           final bool hazardWarning = _items.any(
-            (WasteItem item) =>
-                item.kind == DropKind.waste && item.type == WasteType.toxic,
+            (WasteItem item) => _isToxicObstacle(item),
           );
           return Stack(
             fit: StackFit.expand,
@@ -3316,7 +3353,7 @@ class _GameShellState extends State<GameShell>
                   ),
                 ),
               for (final WasteItem item in _items)
-                if (item.kind == DropKind.waste && item.type == WasteType.toxic)
+                if (_isToxicObstacle(item))
                   Positioned(
                     left: (item.position.dx - 42)
                         .clamp(8, size.width - 92)
@@ -7308,7 +7345,7 @@ class GameplayEffectsPainter extends CustomPainter {
     }
     WasteItem? recyclable;
     for (final WasteItem item in items) {
-      if (item.kind == DropKind.waste &&
+      if (_isSortableWaste(item) &&
           item.held &&
           item.type.bin == BinType.recycle) {
         recyclable = item;
@@ -7341,7 +7378,7 @@ class GameplayEffectsPainter extends CustomPainter {
 
   void _paintToxicWarnings(Canvas canvas) {
     for (final WasteItem item in items) {
-      if (item.kind != DropKind.waste || item.type != WasteType.toxic) {
+      if (!_isToxicObstacle(item)) {
         continue;
       }
       final double pulse = 0.5 + math.sin(time * 8 + item.id) * 0.18;
@@ -7384,7 +7421,7 @@ class TutorialGuidePainter extends CustomPainter {
     if (current == null) {
       return;
     }
-    if (current.type == WasteType.toxic) {
+    if (_isToxicObstacle(current)) {
       final double pulse = 0.5 + math.sin(progress * math.pi * 2) * 0.5;
       final Paint danger = Paint()
         ..color = const Color(0xffff3b4f).withValues(alpha: 0.26 + pulse * 0.22)
