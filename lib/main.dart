@@ -814,32 +814,210 @@ const List<CityMap> _maps = <CityMap>[
   CityMap(
     name: 'Beach Cleanup',
     caption: 'Sweep sand, surf, and boardwalks',
-    unlockScore: 2200,
+    unlockScore: 1200,
     colors: <Color>[Color(0xffffca66), Color(0xff139fc4), Color(0xffe8f8ff)],
     icon: Icons.beach_access_rounded,
   ),
   CityMap(
     name: 'City Street',
     caption: 'Rescue blocks from litter storms',
-    unlockScore: 5200,
+    unlockScore: 2400,
     colors: <Color>[Color(0xff4b8bd6), Color(0xff253859), Color(0xffffd75d)],
     icon: Icons.location_city_rounded,
   ),
   CityMap(
-    name: 'Industrial Area',
+    name: 'River Walk',
+    caption: 'Sort bottles before they reach the river',
+    unlockScore: 3600,
+    colors: <Color>[Color(0xff51d8ff), Color(0xff086b84), Color(0xffb7fff2)],
+    icon: Icons.water_rounded,
+  ),
+  CityMap(
+    name: 'School Yard',
+    caption: 'Clean lunch litter from the playground',
+    unlockScore: 4800,
+    colors: <Color>[Color(0xffffd95a), Color(0xff305aa3), Color(0xff7ee85c)],
+    icon: Icons.school_rounded,
+  ),
+  CityMap(
+    name: 'Market Lane',
+    caption: 'Clear busy stalls and food scraps',
+    unlockScore: 6000,
+    colors: <Color>[Color(0xffff9c45), Color(0xff7b3152), Color(0xffffef7a)],
+    icon: Icons.storefront_rounded,
+  ),
+  CityMap(
+    name: 'Harbor Pier',
+    caption: 'Protect the docks from plastic drift',
+    unlockScore: 7200,
+    colors: <Color>[Color(0xff42b7ff), Color(0xff10456b), Color(0xffffd36e)],
+    icon: Icons.anchor_rounded,
+  ),
+  CityMap(
+    name: 'Forest Trail',
+    caption: 'Sweep cans and paper from the trees',
+    unlockScore: 8400,
+    colors: <Color>[Color(0xff76dc4e), Color(0xff145934), Color(0xffa8e56a)],
+    icon: Icons.forest_rounded,
+  ),
+  CityMap(
+    name: 'Stadium Lot',
+    caption: 'Clean the rush after game day',
+    unlockScore: 9600,
+    colors: <Color>[Color(0xff52a5ff), Color(0xff253052), Color(0xffffdf4b)],
+    icon: Icons.sports_soccer_rounded,
+  ),
+  CityMap(
+    name: 'Downtown Loop',
+    caption: 'Keep traffic lanes sparkling',
+    unlockScore: 10800,
+    colors: <Color>[Color(0xff48c0ff), Color(0xff20364e), Color(0xffff694f)],
+    icon: Icons.apartment_rounded,
+  ),
+  CityMap(
+    name: 'Botanical Garden',
+    caption: 'Protect flower beds from windy litter',
+    unlockScore: 12000,
+    colors: <Color>[Color(0xff89e85b), Color(0xff2e7340), Color(0xffff8fc4)],
+    icon: Icons.local_florist_rounded,
+  ),
+  CityMap(
+    name: 'Canal District',
+    caption: 'Pull floating scraps from narrow water',
+    unlockScore: 13200,
+    colors: <Color>[Color(0xff4ed8ea), Color(0xff164967), Color(0xffffc86d)],
+    icon: Icons.directions_boat_rounded,
+  ),
+  CityMap(
+    name: 'Sunset Beach',
+    caption: 'Beat the tide before trash washes out',
+    unlockScore: 14400,
+    colors: <Color>[Color(0xffffb15a), Color(0xff156d92), Color(0xffff7572)],
+    icon: Icons.wb_twilight_rounded,
+  ),
+  CityMap(
+    name: 'Recycling Center',
+    caption: 'Sort fast on the depot floor',
+    unlockScore: 15600,
+    colors: <Color>[Color(0xff62de69), Color(0xff225a4b), Color(0xffc3f24e)],
+    icon: Icons.recycling_rounded,
+  ),
+  CityMap(
+    name: 'Old Town',
+    caption: 'Rescue cobblestone streets from clutter',
+    unlockScore: 16800,
+    colors: <Color>[Color(0xffd99b55), Color(0xff4b3858), Color(0xff70d2ff)],
+    icon: Icons.holiday_village_rounded,
+  ),
+  CityMap(
+    name: 'Snowy Plaza',
+    caption: 'Spot hidden cans in bright snow',
+    unlockScore: 18000,
+    colors: <Color>[Color(0xffd8f6ff), Color(0xff47749a), Color(0xff74ddff)],
+    icon: Icons.ac_unit_rounded,
+  ),
+  CityMap(
+    name: 'Desert Road',
+    caption: 'Catch windblown waste in dry heat',
+    unlockScore: 19200,
+    colors: <Color>[Color(0xffffc259), Color(0xff8c5a2e), Color(0xffff8754)],
+    icon: Icons.landscape_rounded,
+  ),
+  CityMap(
+    name: 'Rainy Avenue',
+    caption: 'Stop storm drains from filling up',
+    unlockScore: 20400,
+    colors: <Color>[Color(0xff55c7ff), Color(0xff253c68), Color(0xff88a7ff)],
+    icon: Icons.thunderstorm_rounded,
+  ),
+  CityMap(
+    name: 'Mountain Camp',
+    caption: 'Leave campsites cleaner than found',
+    unlockScore: 21600,
+    colors: <Color>[Color(0xff84cf63), Color(0xff37545b), Color(0xffffc35c)],
+    icon: Icons.terrain_rounded,
+  ),
+  CityMap(
+    name: 'Airport Terminal',
+    caption: 'Sort busy terminal trash on schedule',
+    unlockScore: 22800,
+    colors: <Color>[Color(0xff7bc9ff), Color(0xff314e76), Color(0xffefefff)],
+    icon: Icons.flight_takeoff_rounded,
+  ),
+  CityMap(
+    name: 'Museum Row',
+    caption: 'Keep the exhibit district spotless',
+    unlockScore: 24000,
+    colors: <Color>[Color(0xffd0b07c), Color(0xff3e4d6a), Color(0xffffefb8)],
+    icon: Icons.museum_rounded,
+  ),
+  CityMap(
+    name: 'Carnival Pier',
+    caption: 'Clean cups and wrappers after rides',
+    unlockScore: 25200,
+    colors: <Color>[Color(0xffff73b6), Color(0xff30519d), Color(0xffffdf55)],
+    icon: Icons.attractions_rounded,
+  ),
+  CityMap(
+    name: 'Tech Park',
+    caption: 'Sweep glass and metal near the labs',
+    unlockScore: 26400,
+    colors: <Color>[Color(0xff42f2ce), Color(0xff143c67), Color(0xff9cf5ff)],
+    icon: Icons.memory_rounded,
+  ),
+  CityMap(
+    name: 'Train Station',
+    caption: 'Sort platform litter between arrivals',
+    unlockScore: 27600,
+    colors: <Color>[Color(0xffffd057), Color(0xff31435f), Color(0xff5bc5ff)],
+    icon: Icons.train_rounded,
+  ),
+  CityMap(
+    name: 'Night Market',
+    caption: 'Clean neon alleys before closing time',
+    unlockScore: 28800,
+    colors: <Color>[Color(0xffb76bff), Color(0xff17234f), Color(0xffffd34e)],
+    icon: Icons.nightlife_rounded,
+  ),
+  CityMap(
+    name: 'Coral Coast',
+    caption: 'Keep bottles away from reef water',
+    unlockScore: 30000,
+    colors: <Color>[Color(0xff53e8e0), Color(0xff0b6380), Color(0xffff917d)],
+    icon: Icons.scuba_diving_rounded,
+  ),
+  CityMap(
+    name: 'Industrial Docks',
     caption: 'Keep barrels out of the stream',
-    unlockScore: 9400,
+    unlockScore: 31200,
     colors: <Color>[Color(0xffff9944), Color(0xff473829), Color(0xff86e35b)],
     icon: Icons.factory_rounded,
   ),
   CityMap(
     name: 'Ocean Depths',
     caption: 'Pull plastic from deep blue lanes',
-    unlockScore: 14500,
+    unlockScore: 32400,
     colors: <Color>[Color(0xff22c3ff), Color(0xff053870), Color(0xff9cf7ff)],
     icon: Icons.waves_rounded,
   ),
+  CityMap(
+    name: 'Skybridge City',
+    caption: 'Clean elevated roads above downtown',
+    unlockScore: 33600,
+    colors: <Color>[Color(0xff78c8ff), Color(0xff244268), Color(0xfffff26c)],
+    icon: Icons.add_road_rounded,
+  ),
+  CityMap(
+    name: 'Eco Capital',
+    caption: 'Finish the ultimate city cleanup',
+    unlockScore: 34800,
+    colors: <Color>[Color(0xff7cff61), Color(0xff164d39), Color(0xffffec4f)],
+    icon: Icons.emoji_events_rounded,
+  ),
 ];
+
+@visibleForTesting
+int get totalCleanupLevels => _maps.length;
 
 const List<GameModeOption> _modes = <GameModeOption>[
   GameModeOption(
@@ -1613,6 +1791,9 @@ class _GameShellState extends State<GameShell>
       if (_bestScore >= _maps[i].unlockScore) {
         _unlockedMaps.add(i);
       }
+    }
+    if (earnedStars > 0 && _selectedMap + 1 < _maps.length) {
+      _unlockedMaps.add(_selectedMap + 1);
     }
     _view = GameView.complete;
     _celebrationController.forward(from: 0);
@@ -3834,34 +4015,56 @@ class _GameShellState extends State<GameShell>
   }
 
   Widget _buildMap() {
-    const List<Offset> positions = <Offset>[
-      Offset(0.47, 0.13),
-      Offset(0.66, 0.35),
-      Offset(0.29, 0.45),
-      Offset(0.62, 0.63),
-      Offset(0.48, 0.83),
-    ];
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final Size size = Size(constraints.maxWidth, constraints.maxHeight);
+        final double routeHeight = math.max(
+          size.height,
+          154 + _maps.length * 96,
+        );
         return Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            _sceneBackground(
-              GameArt.worldMapBackground,
-              alignment: Alignment.topCenter,
-              scrim: 0.02,
-            ),
-            for (int i = 0; i < _maps.length; i++)
-              Positioned(
-                left: (size.width * positions[i].dx - 72)
-                    .clamp(8, size.width - 154)
-                    .toDouble(),
-                top: (size.height * positions[i].dy)
-                    .clamp(8, size.height - 126)
-                    .toDouble(),
-                child: _mapNode(i),
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    Color(0xff22a8e9),
+                    Color(0xff0878bb),
+                    Color(0xff05395f),
+                  ],
+                ),
               ),
+            ),
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 92),
+                child: SizedBox(
+                  height: routeHeight,
+                  child: Stack(
+                    children: <Widget>[
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: WorldMapPainter(levelCount: _maps.length),
+                        ),
+                      ),
+                      for (int i = 0; i < _maps.length; i++)
+                        Positioned(
+                          left:
+                              (size.width * (0.5 + math.sin(i * 0.78) * 0.25) -
+                                      73)
+                                  .clamp(8, size.width - 160)
+                                  .toDouble(),
+                          top: 26 + i * 92,
+                          child: _mapNode(i),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             Positioned(
               left: 14,
               right: 14,
@@ -5073,13 +5276,26 @@ class _GameShellState extends State<GameShell>
 
   Widget _gameplayBackdrop({double scrim = 0.02}) {
     final GameModeOption mode = _modes[_selectedMode];
+    final CityMap map = _maps[_selectedMap];
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        _sceneBackground(
-          GameArt.gameplayBackground,
-          alignment: Alignment.topCenter,
-          scrim: scrim,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _ambientController,
+              builder: (BuildContext context, _) {
+                return CustomPaint(
+                  painter: CleanGameplayBackdropPainter(
+                    map: map,
+                    mode: mode,
+                    progress: _ambientController.value,
+                    scrim: scrim,
+                  ),
+                );
+              },
+            ),
+          ),
         ),
         Positioned.fill(
           child: IgnorePointer(
@@ -5614,6 +5830,367 @@ class _NavEntry {
   final String label;
   final IconData icon;
   final GameView view;
+}
+
+class CleanGameplayBackdropPainter extends CustomPainter {
+  const CleanGameplayBackdropPainter({
+    required this.map,
+    required this.mode,
+    required this.progress,
+    required this.scrim,
+  });
+
+  final CityMap map;
+  final GameModeOption mode;
+  final double progress;
+  final double scrim;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    final Rect rect = Offset.zero & size;
+    final String mapName = map.name.toLowerCase();
+    final bool ocean =
+        mapName.contains('ocean') ||
+        mapName.contains('coral') ||
+        mapName.contains('harbor') ||
+        mapName.contains('canal');
+    final bool beach =
+        ocean || mapName.contains('beach') || mapName.contains('pier');
+    final bool park =
+        mapName.contains('park') ||
+        mapName.contains('forest') ||
+        mapName.contains('garden') ||
+        mapName.contains('camp');
+    final bool night = mapName.contains('night');
+
+    final Color skyTop = night
+        ? const Color(0xff102064)
+        : Color.lerp(const Color(0xff0caaf6), map.colors[2], 0.28)!;
+    final Color skyBottom = night
+        ? const Color(0xff3c1d75)
+        : Color.lerp(const Color(0xff8cecff), map.colors.first, 0.2)!;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[skyTop, skyBottom, const Color(0xfff4fbff)],
+          stops: const <double>[0, 0.52, 1],
+        ).createShader(rect),
+    );
+
+    _paintSunGlow(canvas, size, night);
+    _paintClouds(canvas, size, night);
+    _paintDistantCity(canvas, size, night);
+    if (beach) {
+      _paintWaterfront(canvas, size, ocean);
+    } else if (park) {
+      _paintParkPath(canvas, size);
+    } else {
+      _paintStreet(canvas, size, mapName);
+    }
+    _paintForegroundShade(canvas, size);
+    _paintModeGlow(canvas, size);
+    if (scrim > 0) {
+      canvas.drawRect(
+        rect,
+        Paint()..color = Colors.black.withValues(alpha: scrim),
+      );
+    }
+  }
+
+  void _paintSunGlow(Canvas canvas, Size size, bool night) {
+    final Offset center = Offset(size.width * 0.78, size.height * 0.18);
+    canvas.drawCircle(
+      center,
+      size.width * 0.34,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: <Color>[
+                (night ? mode.colors[2] : const Color(0xfffff4a0)).withValues(
+                  alpha: night ? 0.2 : 0.42,
+                ),
+                Colors.transparent,
+              ],
+            ).createShader(
+              Rect.fromCircle(center: center, radius: size.width * 0.34),
+            ),
+    );
+  }
+
+  void _paintClouds(Canvas canvas, Size size, bool night) {
+    final Paint cloud = Paint()
+      ..color = Colors.white.withValues(alpha: night ? 0.18 : 0.84);
+    for (int i = 0; i < 7; i++) {
+      final double drift =
+          math.sin(progress * math.pi * 2 + i * 1.7) * (10 + i);
+      final double x = size.width * (0.08 + (i % 4) * 0.28) + drift;
+      final double y = size.height * (0.08 + (i % 3) * 0.085);
+      canvas.drawCircle(Offset(x, y), 20 + (i % 2) * 5, cloud);
+      canvas.drawCircle(Offset(x + 26, y + 5), 15, cloud);
+      canvas.drawCircle(Offset(x - 22, y + 7), 13, cloud);
+    }
+  }
+
+  void _paintDistantCity(Canvas canvas, Size size, bool night) {
+    final Paint buildingA = Paint()
+      ..color = (night ? const Color(0xff182757) : const Color(0xff3c8bc4))
+          .withValues(alpha: 0.78);
+    final Paint buildingB = Paint()
+      ..color = (night ? const Color(0xff0d1837) : const Color(0xff23669f))
+          .withValues(alpha: 0.82);
+    final Paint window = Paint()
+      ..color = (night ? const Color(0xffffe87a) : Colors.white).withValues(
+        alpha: night ? 0.42 : 0.24,
+      );
+    for (int side = 0; side < 2; side++) {
+      for (int i = 0; i < 7; i++) {
+        final double width = 34 + (i % 3) * 10;
+        final double height = size.height * (0.24 + (i % 4) * 0.045);
+        final double x = side == 0
+            ? -12 + i * 30
+            : size.width - 18 - i * 32 - width;
+        final double y = size.height * 0.58 - height + (i % 2) * 12;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(x, y, width, height),
+            const Radius.circular(5),
+          ),
+          i.isEven ? buildingA : buildingB,
+        );
+        for (double wy = y + 14; wy < y + height - 8; wy += 22) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(x + 8, wy, 7, 9),
+              const Radius.circular(2),
+            ),
+            window,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(x + width - 16, wy, 7, 9),
+              const Radius.circular(2),
+            ),
+            window,
+          );
+        }
+      }
+    }
+  }
+
+  void _paintWaterfront(Canvas canvas, Size size, bool ocean) {
+    final Path sand = Path()
+      ..moveTo(0, size.height * 0.58)
+      ..quadraticBezierTo(
+        size.width * 0.28,
+        size.height * 0.52,
+        size.width * 0.55,
+        size.height * 0.6,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.78,
+        size.height * 0.67,
+        size.width,
+        size.height * 0.58,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      sand,
+      Paint()
+        ..shader =
+            LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                const Color(0xffffde83),
+                ocean ? const Color(0xff159bcc) : const Color(0xffffbc62),
+              ],
+            ).createShader(
+              Offset(0, size.height * 0.58) &
+                  Size(size.width, size.height * 0.42),
+            ),
+    );
+
+    final Paint wave = Paint()
+      ..color = Colors.white.withValues(alpha: 0.58)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 8; i++) {
+      final double y = size.height * (0.64 + i * 0.045);
+      final double phase = progress * math.pi * 2 + i;
+      final Path path = Path()
+        ..moveTo(size.width * 0.05, y)
+        ..quadraticBezierTo(
+          size.width * 0.35,
+          y + math.sin(phase) * 9,
+          size.width * 0.68,
+          y - math.cos(phase) * 8,
+        )
+        ..quadraticBezierTo(size.width * 0.86, y - 10, size.width * 0.98, y);
+      canvas.drawPath(path, wave);
+    }
+  }
+
+  void _paintParkPath(Canvas canvas, Size size) {
+    final Paint grass = Paint()
+      ..shader =
+          LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              map.colors.first.withValues(alpha: 0.88),
+              map.colors[1].withValues(alpha: 0.94),
+            ],
+          ).createShader(
+            Offset(0, size.height * 0.56) &
+                Size(size.width, size.height * 0.44),
+          );
+    final Path hills = Path()
+      ..moveTo(0, size.height * 0.58)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.47,
+        size.width * 0.6,
+        size.height * 0.6,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.82,
+        size.height * 0.68,
+        size.width,
+        size.height * 0.56,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(hills, grass);
+    _paintPath(canvas, size, const Color(0xffcfb875), const Color(0xffffedab));
+  }
+
+  void _paintStreet(Canvas canvas, Size size, String mapName) {
+    final Color roadColor = mapName.contains('industrial')
+        ? const Color(0xff3f352d)
+        : mapName.contains('snow')
+        ? const Color(0xff5d7182)
+        : const Color(0xff263543);
+    final Paint sidewalk = Paint()
+      ..color =
+          (mapName.contains('desert')
+                  ? const Color(0xffffc66c)
+                  : const Color(0xffb8c4c8))
+              .withValues(alpha: 0.74);
+    canvas.drawRect(
+      Rect.fromLTWH(0, size.height * 0.55, size.width, size.height * 0.45),
+      sidewalk,
+    );
+    _paintPath(canvas, size, roadColor, const Color(0xffffe45e));
+  }
+
+  void _paintPath(Canvas canvas, Size size, Color base, Color stripeColor) {
+    final Path road = Path()
+      ..moveTo(size.width * 0.15, size.height)
+      ..lineTo(size.width * 0.38, size.height * 0.56)
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.49,
+        size.width * 0.62,
+        size.height * 0.56,
+      )
+      ..lineTo(size.width * 0.88, size.height)
+      ..close();
+    canvas.drawPath(
+      road,
+      Paint()
+        ..shader =
+            LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[base.withValues(alpha: 0.74), base],
+            ).createShader(
+              Rect.fromLTWH(
+                0,
+                size.height * 0.5,
+                size.width,
+                size.height * 0.5,
+              ),
+            ),
+    );
+
+    final Paint edge = Paint()
+      ..color = Colors.white.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(size.width * 0.39, size.height * 0.58),
+      Offset(size.width * 0.22, size.height),
+      edge,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.61, size.height * 0.58),
+      Offset(size.width * 0.8, size.height),
+      edge,
+    );
+
+    final Paint dash = Paint()
+      ..color = stripeColor.withValues(alpha: 0.72)
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 7; i++) {
+      final double y = size.height * (0.62 + i * 0.055);
+      final double x = size.width * (0.49 + i * 0.004);
+      canvas.drawLine(Offset(x, y), Offset(x + 3, y + 24), dash);
+    }
+  }
+
+  void _paintForegroundShade(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, 0.12),
+          radius: 0.92,
+          colors: <Color>[
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.13),
+          ],
+          stops: const <double>[0.58, 1],
+        ).createShader(Offset.zero & size),
+    );
+  }
+
+  void _paintModeGlow(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width * 0.5, size.height * 0.46);
+    canvas.drawCircle(
+      center,
+      size.width * 0.5,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: <Color>[
+                mode.colors.first.withValues(alpha: 0.12),
+                Colors.transparent,
+              ],
+            ).createShader(
+              Rect.fromCircle(center: center, radius: size.width * 0.5),
+            ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(CleanGameplayBackdropPainter oldDelegate) {
+    return oldDelegate.map != map ||
+        oldDelegate.mode != mode ||
+        oldDelegate.progress != progress ||
+        oldDelegate.scrim != scrim;
+  }
 }
 
 class ModeBackdropPainter extends CustomPainter {
@@ -7432,8 +8009,15 @@ class WindTrailPainter extends CustomPainter {
 }
 
 class WorldMapPainter extends CustomPainter {
+  const WorldMapPainter({required this.levelCount});
+
+  final int levelCount;
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
     final Rect rect = Offset.zero & size;
     final Paint sea = Paint()
       ..shader = const LinearGradient(
@@ -7447,62 +8031,52 @@ class WorldMapPainter extends CustomPainter {
       ).createShader(rect);
     canvas.drawRect(rect, sea);
 
+    final List<Offset> nodes = List<Offset>.generate(
+      levelCount,
+      (int index) => Offset(
+        size.width * (0.5 + math.sin(index * 0.78) * 0.25),
+        58 + index * 92,
+      ),
+    );
     final Paint island = Paint()..color = const Color(0xff58b84f);
     final Paint sand = Paint()..color = const Color(0xffffd074);
-    for (final Offset center in <Offset>[
-      Offset(size.width * 0.28, size.height * 0.18),
-      Offset(size.width * 0.68, size.height * 0.38),
-      Offset(size.width * 0.36, size.height * 0.58),
-      Offset(size.width * 0.72, size.height * 0.78),
-    ]) {
+    final Paint park = Paint()..color = const Color(0xff6ed15a);
+    for (int i = 0; i < levelCount; i += 5) {
+      final Offset node = nodes[i];
+      final Offset center = Offset(
+        (node.dx + (i.isEven ? -28 : 32)).clamp(80, size.width - 80).toDouble(),
+        node.dy + 34,
+      );
       canvas.drawOval(
-        Rect.fromCenter(
-          center: center,
-          width: size.width * 0.52,
-          height: size.height * 0.2,
-        ),
+        Rect.fromCenter(center: center, width: size.width * 0.54, height: 118),
         sand,
       );
       canvas.drawOval(
-        Rect.fromCenter(
-          center: center,
-          width: size.width * 0.45,
-          height: size.height * 0.16,
-        ),
-        island,
+        Rect.fromCenter(center: center, width: size.width * 0.46, height: 88),
+        i % 10 == 0 ? park : island,
       );
     }
 
-    final Path road = Path()
-      ..moveTo(size.width * 0.26, size.height * 0.16)
-      ..cubicTo(
-        size.width * 0.72,
-        size.height * 0.2,
-        size.width * 0.72,
-        size.height * 0.36,
-        size.width * 0.58,
-        size.height * 0.36,
-      )
-      ..cubicTo(
-        size.width * 0.12,
-        size.height * 0.42,
-        size.width * 0.22,
-        size.height * 0.56,
-        size.width * 0.3,
-        size.height * 0.57,
-      )
-      ..cubicTo(
-        size.width * 0.84,
-        size.height * 0.63,
-        size.width * 0.76,
-        size.height * 0.76,
-        size.width * 0.45,
-        size.height * 0.84,
-      );
+    final Path road = Path();
+    if (nodes.isNotEmpty) {
+      road.moveTo(nodes.first.dx, nodes.first.dy);
+      for (int i = 1; i < nodes.length; i++) {
+        final Offset previous = nodes[i - 1];
+        final Offset current = nodes[i];
+        road.cubicTo(
+          previous.dx,
+          previous.dy + 38,
+          current.dx,
+          current.dy - 38,
+          current.dx,
+          current.dy,
+        );
+      }
+    }
     final Paint roadPaint = Paint()
       ..color = const Color(0xff5d5142)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 28
+      ..strokeWidth = 26
       ..strokeCap = StrokeCap.round;
     final Paint dashPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.75)
@@ -7517,9 +8091,9 @@ class WorldMapPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 7; i++) {
-      final double x = size.width * (0.1 + (i % 3) * 0.32);
-      final double y = size.height * (0.1 + i * 0.12);
+    for (int i = 0; i < 22; i++) {
+      final double x = size.width * (0.08 + (i % 4) * 0.25);
+      final double y = 36 + i * 130.0;
       canvas.drawArc(
         Rect.fromLTWH(x, y, 38, 13),
         0.1,
@@ -7531,7 +8105,9 @@ class WorldMapPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(WorldMapPainter oldDelegate) => false;
+  bool shouldRepaint(WorldMapPainter oldDelegate) {
+    return oldDelegate.levelCount != levelCount;
+  }
 }
 
 class HomeScenePainter extends CustomPainter {
