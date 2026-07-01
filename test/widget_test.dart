@@ -3,6 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trash_tornado/main.dart';
 
 void main() {
+  test('campaign includes at least thirty cleanup levels', () {
+    expect(totalCleanupLevels, greaterThanOrEqualTo(30));
+  });
+
   test('clean sorting target earns three stars even with modest score', () {
     expect(
       calculateStarsForRun(
