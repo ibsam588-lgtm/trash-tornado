@@ -73,6 +73,24 @@ void main() {
     },
   );
 
+  test('release path can sort after crossing the correct bin', () {
+    const Size playSize = Size(400, 800);
+    final List<Offset> path = <Offset>[
+      const Offset(250, 610),
+      const Offset(250, 715),
+      const Offset(250, 620),
+    ];
+
+    expect(
+      binHitByReleasePathForTesting(
+        size: playSize,
+        path: path,
+        preferredBin: BinType.paper,
+      ),
+      BinType.paper,
+    );
+  });
+
   testWidgets('Trash Tornado opens menu and navigates core screens', (
     WidgetTester tester,
   ) async {
