@@ -516,6 +516,13 @@ enum BinType { organic, recycle, paper, hazard }
 
 enum DropKind { waste, toxicBarrel, ecoBlast }
 
+const List<BinType> _gameplayBinTypes = <BinType>[
+  BinType.organic,
+  BinType.recycle,
+  BinType.paper,
+  BinType.hazard,
+];
+
 extension WasteInfo on WasteType {
   String get label {
     switch (this) {
@@ -670,6 +677,103 @@ bool isSortableWasteForTesting(WasteItem item) => _isSortableWaste(item);
 
 @visibleForTesting
 bool isToxicObstacleForTesting(WasteItem item) => _isToxicObstacle(item);
+
+Map<BinType, Rect> _gameplayBinRects(Size size, {double bottomInset = 0}) {
+  if (size == Size.zero) {
+    return const <BinType, Rect>{};
+  }
+  final double safeBottom = bottomInset.clamp(0, 96).toDouble();
+  final double binTop = size.height - 140 - safeBottom;
+  final double slotWidth = size.width / _gameplayBinTypes.length;
+  return <BinType, Rect>{
+    for (int i = 0; i < _gameplayBinTypes.length; i++)
+      _gameplayBinTypes[i]: Rect.fromLTWH(
+        i * slotWidth + 5,
+        binTop,
+        slotWidth - 10,
+        104,
+      ),
+  };
+}
+
+BinType? _binHitByPath(
+  Size size,
+  List<Offset> path, {
+  double bottomInset = 0,
+  BinType? preferredBin,
+}) {
+  if (path.isEmpty) {
+    return null;
+  }
+  final Map<BinType, Rect> rects = _gameplayBinRects(
+    size,
+    bottomInset: bottomInset,
+  );
+  if (preferredBin != null &&
+      _pathTouchesRect(path, rects[preferredBin]?.inflate(28))) {
+    return preferredBin;
+  }
+  for (int p = path.length - 1; p > 0; p--) {
+    for (final MapEntry<BinType, Rect> entry in rects.entries) {
+      if (_segmentTouchesRect(path[p - 1], path[p], entry.value.inflate(22))) {
+        return entry.key;
+      }
+    }
+  }
+  final Offset finalPoint = path.last;
+  for (final MapEntry<BinType, Rect> entry in rects.entries) {
+    if (entry.value.inflate(22).contains(finalPoint)) {
+      return entry.key;
+    }
+  }
+  return null;
+}
+
+bool _pathTouchesRect(List<Offset> path, Rect? rect) {
+  if (rect == null) {
+    return false;
+  }
+  if (path.length == 1) {
+    return rect.contains(path.single);
+  }
+  for (int i = 1; i < path.length; i++) {
+    if (_segmentTouchesRect(path[i - 1], path[i], rect)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _segmentTouchesRect(Offset start, Offset end, Rect rect) {
+  if (rect.contains(start) || rect.contains(end)) {
+    return true;
+  }
+  final double distance = (end - start).distance;
+  final int steps = math.max(2, (distance / 12).ceil());
+  for (int i = 1; i < steps; i++) {
+    final double t = i / steps;
+    final Offset point = Offset.lerp(start, end, t)!;
+    if (rect.contains(point)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+@visibleForTesting
+BinType? binHitByReleasePathForTesting({
+  required Size size,
+  required List<Offset> path,
+  double bottomInset = 0,
+  BinType? preferredBin,
+}) {
+  return _binHitByPath(
+    size,
+    path,
+    bottomInset: bottomInset,
+    preferredBin: preferredBin,
+  );
+}
 
 class SortBurst {
   SortBurst({
@@ -2027,8 +2131,9 @@ class _GameShellState extends State<GameShell>
     }
     final BinType? bin = _binForPosition(item.position);
     final bool strongSwipe = details.velocity.pixelsPerSecond.distance > 520;
+    final BinType? pathBin = _binForReleasePath(item);
     final BinType? swipedBin = strongSwipe ? _binForSwipe(item.position) : null;
-    final BinType? targetBin = bin ?? swipedBin;
+    final BinType? targetBin = bin ?? pathBin ?? swipedBin;
     setState(() {
       item.held = false;
       if (targetBin == item.type.bin) {
@@ -2074,6 +2179,19 @@ class _GameShellState extends State<GameShell>
     final double slot = _playSize.width / bins.length;
     final int index = (position.dx / slot).floor().clamp(0, bins.length - 1);
     return bins[index];
+  }
+
+  BinType? _binForReleasePath(WasteItem item) {
+    final List<Offset> path = <Offset>[
+      ...item.trail,
+      if (item.trail.isEmpty || item.trail.last != item.position) item.position,
+    ];
+    return _binHitByPath(
+      _playSize,
+      path,
+      bottomInset: _playDockInset,
+      preferredBin: item.type.bin,
+    );
   }
 
   void _collectItem(WasteItem item, BinType bin) {
@@ -2189,27 +2307,12 @@ class _GameShellState extends State<GameShell>
   }
 
   Map<BinType, Rect> _binRects(Size size, {double bottomInset = 0}) {
-    if (size == Size.zero) {
-      return const <BinType, Rect>{};
-    }
-    final List<BinType> bins = _binTypes;
-    final double safeBottom = bottomInset.clamp(0, 96).toDouble();
-    final double binTop = size.height - 140 - safeBottom;
-    final double slotWidth = size.width / bins.length;
-    return <BinType, Rect>{
-      for (int i = 0; i < bins.length; i++)
-        bins[i]: Rect.fromLTWH(i * slotWidth + 5, binTop, slotWidth - 10, 104),
-    };
+    return _gameplayBinRects(size, bottomInset: bottomInset);
   }
 
   List<WasteType> get _cleanWasteTypes => _sortableWasteTypes;
 
-  List<BinType> get _binTypes => const <BinType>[
-    BinType.organic,
-    BinType.recycle,
-    BinType.paper,
-    BinType.hazard,
-  ];
+  List<BinType> get _binTypes => _gameplayBinTypes;
 
   void _buySkin(int index) {
     final TornadoSkin skin = _skins[index];
