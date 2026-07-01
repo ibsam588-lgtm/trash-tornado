@@ -4209,27 +4209,45 @@ class _GameShellState extends State<GameShell>
         final Size size = Size(constraints.maxWidth, constraints.maxHeight);
         final double routeHeight = math.max(
           size.height,
-          154 + _maps.length * 96,
+          174 + _maps.length * 104,
         );
+        final double mapWidth = math.max(1, size.width - 32).toDouble();
+        final double nodeWidth = math.min(236, mapWidth - 20).toDouble();
         return Stack(
           fit: StackFit.expand,
           children: <Widget>[
             DecoratedBox(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: <Color>[
-                    Color(0xff22a8e9),
-                    Color(0xff0878bb),
-                    Color(0xff05395f),
+                    const Color(0xff2fbcf1),
+                    const Color(0xff0b7ec4),
+                    const Color(0xff063051),
                   ],
                 ),
               ),
             ),
             Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.35, -0.82),
+                    radius: 1.25,
+                    colors: <Color>[
+                      Colors.white.withValues(alpha: 0.22),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.2),
+                    ],
+                    stops: const <double>[0, 0.48, 1],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 92),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
                 child: SizedBox(
                   height: routeHeight,
                   child: Stack(
@@ -4242,12 +4260,12 @@ class _GameShellState extends State<GameShell>
                       for (int i = 0; i < _maps.length; i++)
                         Positioned(
                           left:
-                              (size.width * (0.5 + math.sin(i * 0.78) * 0.25) -
-                                      73)
-                                  .clamp(8, size.width - 160)
+                              (mapWidth * (0.5 + math.sin(i * 0.78) * 0.25) -
+                                      nodeWidth / 2)
+                                  .clamp(10, mapWidth - nodeWidth - 10)
                                   .toDouble(),
-                          top: 26 + i * 92,
-                          child: _mapNode(i),
+                          top: 36 + i * 104,
+                          child: _mapNode(i, width: nodeWidth),
                         ),
                     ],
                   ),
@@ -4262,6 +4280,7 @@ class _GameShellState extends State<GameShell>
                 label: 'Play Selected',
                 icon: Icons.play_arrow_rounded,
                 compact: true,
+                color: const Color(0xff79d925),
                 onPressed: () => _startRun(),
               ),
             ),
@@ -4271,7 +4290,7 @@ class _GameShellState extends State<GameShell>
     );
   }
 
-  Widget _mapNode(int index) {
+  Widget _mapNode(int index, {required double width}) {
     final CityMap map = _maps[index];
     final bool unlocked = _unlockedMaps.contains(index);
     final bool selected = _selectedMap == index;
@@ -4281,70 +4300,170 @@ class _GameShellState extends State<GameShell>
               _selectedMap = index;
             })
           : null,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 146,
-        padding: const EdgeInsets.all(8),
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        width: width,
+        padding: const EdgeInsets.fromLTRB(9, 8, 10, 9),
         decoration: BoxDecoration(
-          color: unlocked
-              ? const Color(0xff123b52).withValues(alpha: 0.88)
-              : const Color(0xff101b2b).withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? const Color(0xffffd642) : const Color(0xff6ba9df),
-            width: selected ? 2 : 1,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: unlocked
+                ? <Color>[
+                    const Color(0xff1c5b77).withValues(alpha: 0.96),
+                    const Color(0xff0a2f4a).withValues(alpha: 0.96),
+                  ]
+                : <Color>[
+                    const Color(0xff18283b).withValues(alpha: 0.94),
+                    const Color(0xff081522).withValues(alpha: 0.96),
+                  ],
           ),
-          boxShadow: const <BoxShadow>[
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xffffe15a)
+                : unlocked
+                ? const Color(0xff80cfff).withValues(alpha: 0.82)
+                : Colors.white.withValues(alpha: 0.18),
+            width: selected ? 2.4 : 1.3,
+          ),
+          boxShadow: <BoxShadow>[
+            if (selected)
+              BoxShadow(
+                color: const Color(0xffffd642).withValues(alpha: 0.38),
+                blurRadius: 18,
+                spreadRadius: 1,
+              ),
             BoxShadow(
-              color: Colors.black54,
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              color: Colors.black.withValues(alpha: unlocked ? 0.42 : 0.58),
+              blurRadius: 12,
+              offset: const Offset(0, 7),
             ),
           ],
         ),
-        child: Row(
+        child: Stack(
           children: <Widget>[
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: unlocked
-                  ? map.colors.first.withValues(alpha: 0.9)
-                  : Colors.white12,
-              child: Icon(
-                unlocked ? map.icon : Icons.lock_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    '${index + 1}. ${map.name}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11,
-                    ),
+            if (selected)
+              Positioned(
+                right: -18,
+                top: -18,
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xffffd642).withValues(alpha: 0.12),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: List<Widget>.generate(
-                      3,
-                      (int star) => Icon(
-                        Icons.star_rounded,
-                        color: unlocked
-                            ? const Color(0xffffd642)
-                            : Colors.white24,
-                        size: 13,
+                ),
+              ),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: unlocked
+                          ? <Color>[
+                              Color.lerp(map.colors.first, Colors.white, 0.28)!,
+                              map.colors.first,
+                              Color.lerp(map.colors.last, Colors.black, 0.18)!,
+                            ]
+                          : <Color>[
+                              Colors.white.withValues(alpha: 0.22),
+                              Colors.white.withValues(alpha: 0.08),
+                              Colors.black.withValues(alpha: 0.16),
+                            ],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(
+                        alpha: unlocked ? 0.34 : 0.16,
                       ),
                     ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: (unlocked ? map.colors.first : Colors.black)
+                            .withValues(alpha: unlocked ? 0.28 : 0.18),
+                        blurRadius: 10,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: Icon(
+                    unlocked ? map.icon : Icons.lock_rounded,
+                    color: Colors.white,
+                    size: 25,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        '${index + 1}. ${map.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: unlocked ? Colors.white : Colors.white70,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13.5,
+                          height: 1,
+                          shadows: <Shadow>[
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.62),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        unlocked ? map.caption : 'Locked cleanup zone',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(
+                            alpha: unlocked ? 0.72 : 0.45,
+                          ),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: List<Widget>.generate(
+                          3,
+                          (int star) => Padding(
+                            padding: const EdgeInsets.only(right: 1.5),
+                            child: Icon(
+                              Icons.star_rounded,
+                              color: unlocked
+                                  ? const Color(0xffffd642)
+                                  : Colors.white24,
+                              size: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (selected)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xffbaff3d),
+                      size: 22,
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -6937,18 +7056,20 @@ class ArcadeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool disabled = onPressed == null;
-    final double height = compact ? 52 : 66;
-    final double radius = compact ? 10 : 12;
+    final double height = compact ? 58 : 76;
+    final double radius = compact ? 15 : 18;
+    final double iconSize = compact ? 38 : 52;
+    final double iconInset = compact ? 11 : 16;
     final Color topColor = disabled
         ? Colors.white24
-        : Color.lerp(color, Colors.white, 0.28)!;
+        : Color.lerp(color, Colors.white, 0.34)!;
     final Color midColor = disabled ? Colors.white12 : color;
     final Color bottomColor = disabled
         ? Colors.white10
-        : Color.lerp(color, Colors.black, 0.18)!;
+        : Color.lerp(color, Colors.black, 0.24)!;
     final Color lipColor = disabled
         ? Colors.black26
-        : Color.lerp(color, Colors.black, 0.32)!;
+        : Color.lerp(color, Colors.black, 0.42)!;
     return SizedBox(
       width: double.infinity,
       height: height,
@@ -6969,22 +7090,32 @@ class ArcadeButton extends StatelessWidget {
               border: Border.all(
                 color: disabled
                     ? Colors.white24
-                    : Colors.white.withValues(alpha: 0.78),
-                width: 1.6,
+                    : Colors.white.withValues(alpha: 0.9),
+                width: 2,
               ),
               boxShadow: disabled
                   ? null
                   : <BoxShadow>[
                       BoxShadow(
+                        color: Color.lerp(
+                          color,
+                          Colors.white,
+                          0.2,
+                        )!.withValues(alpha: 0.42),
+                        blurRadius: compact ? 16 : 24,
+                        spreadRadius: compact ? 1 : 2,
+                        offset: const Offset(0, 0),
+                      ),
+                      BoxShadow(
                         color: color.withValues(alpha: 0.32),
-                        blurRadius: 14,
+                        blurRadius: 18,
                         spreadRadius: 1,
-                        offset: const Offset(0, 6),
+                        offset: const Offset(0, 8),
                       ),
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.42),
-                        blurRadius: 10,
-                        offset: const Offset(0, 7),
+                        blurRadius: 12,
+                        offset: const Offset(0, 9),
                       ),
                     ],
             ),
@@ -6995,8 +7126,8 @@ class ArcadeButton extends StatelessWidget {
                   Positioned(
                     left: 6,
                     right: 6,
-                    top: 4,
-                    height: height * 0.36,
+                    top: 5,
+                    height: height * 0.34,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(radius),
@@ -7015,47 +7146,71 @@ class ArcadeButton extends StatelessWidget {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    height: compact ? 8 : 10,
+                    height: compact ? 10 : 13,
                     child: DecoratedBox(
-                      decoration: BoxDecoration(color: lipColor),
+                      decoration: BoxDecoration(
+                        color: lipColor,
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   Positioned(
-                    left: compact ? 10 : 18,
-                    top: compact ? 9 : 10,
+                    left: iconInset,
+                    top: (height - iconSize) / 2 - (compact ? 1 : 2),
                     child: Container(
-                      width: compact ? 32 : 44,
-                      height: compact ? 32 : 44,
+                      width: iconSize,
+                      height: iconSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: foreground.withValues(
-                          alpha: foreground == Colors.white ? 0.18 : 0.1,
+                        gradient: RadialGradient(
+                          colors: <Color>[
+                            Colors.white.withValues(alpha: 0.34),
+                            Colors.white.withValues(alpha: 0.12),
+                            Colors.black.withValues(alpha: 0.12),
+                          ],
                         ),
                         border: Border.all(
-                          color: foreground.withValues(alpha: 0.38),
-                          width: 1.2,
+                          color: Colors.white.withValues(alpha: 0.45),
+                          width: 1.4,
                         ),
                         boxShadow: <BoxShadow>[
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.16),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withValues(alpha: 0.24),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: Icon(
                         icon,
-                        size: compact ? 22 : 28,
+                        size: compact ? 25 : 33,
                         color: foreground,
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(radius - 1),
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.24),
+                            width: 1.1,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   Center(
                     child: Padding(
                       padding: EdgeInsets.only(
-                        left: compact ? 50 : 74,
-                        right: compact ? 12 : 28,
-                        bottom: compact ? 4 : 6,
+                        left: compact ? 62 : 78,
+                        right: compact ? 18 : 34,
+                        bottom: compact ? 5 : 8,
                       ),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -7064,16 +7219,21 @@ class ArcadeButton extends StatelessWidget {
                           maxLines: 1,
                           style: TextStyle(
                             color: foreground,
-                            fontSize: compact ? 16 : 27,
+                            fontSize: compact ? 18 : 31,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0,
                             shadows: <Shadow>[
                               Shadow(
                                 color: foreground == Colors.white
-                                    ? Colors.black.withValues(alpha: 0.58)
-                                    : Colors.white.withValues(alpha: 0.34),
-                                blurRadius: foreground == Colors.white ? 2 : 0,
+                                    ? Colors.black.withValues(alpha: 0.72)
+                                    : Colors.white.withValues(alpha: 0.46),
+                                blurRadius: foreground == Colors.white ? 3 : 0,
                                 offset: const Offset(0, 2),
+                              ),
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.32),
+                                blurRadius: 0,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -8223,41 +8383,70 @@ class WorldMapPainter extends CustomPainter {
     }
     final Rect rect = Offset.zero & size;
     final Paint sea = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+      ..shader = const RadialGradient(
+        center: Alignment(-0.45, -0.85),
+        radius: 1.28,
         colors: <Color>[
-          Color(0xff1d9dda),
-          Color(0xff0b6ba7),
-          Color(0xff06375d),
+          Color(0xff6fe2ff),
+          Color(0xff1597d5),
+          Color(0xff075c96),
+          Color(0xff043357),
         ],
+        stops: <double>[0, 0.36, 0.72, 1],
       ).createShader(rect);
     canvas.drawRect(rect, sea);
+
+    final Paint softCloud = Paint()
+      ..color = Colors.white.withValues(alpha: 0.13)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+    for (int i = 0; i < 7; i++) {
+      final double x = size.width * (0.14 + (i % 3) * 0.32);
+      final double y = 80 + i * 220.0;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(x, y),
+          width: 110 + (i % 2) * 40,
+          height: 32,
+        ),
+        softCloud,
+      );
+    }
 
     final List<Offset> nodes = List<Offset>.generate(
       levelCount,
       (int index) => Offset(
         size.width * (0.5 + math.sin(index * 0.78) * 0.25),
-        58 + index * 92,
+        72 + index * 104,
       ),
     );
-    final Paint island = Paint()..color = const Color(0xff58b84f);
-    final Paint sand = Paint()..color = const Color(0xffffd074);
-    final Paint park = Paint()..color = const Color(0xff6ed15a);
-    for (int i = 0; i < levelCount; i += 5) {
+    final Paint islandShadow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.16)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    final Paint sand = Paint()..color = const Color(0xffffd57a);
+    final Paint park = Paint()..color = const Color(0xff6ed75d);
+    final Paint meadow = Paint()..color = const Color(0xff45b64d);
+    for (int i = 0; i < levelCount; i += 4) {
       final Offset node = nodes[i];
       final Offset center = Offset(
-        (node.dx + (i.isEven ? -28 : 32)).clamp(80, size.width - 80).toDouble(),
-        node.dy + 34,
+        (node.dx + (i.isEven ? -42 : 46)).clamp(78, size.width - 78).toDouble(),
+        node.dy + 38,
       );
+      final Rect islandRect = Rect.fromCenter(
+        center: center,
+        width: size.width * (i % 8 == 0 ? 0.58 : 0.5),
+        height: i % 8 == 0 ? 128 : 108,
+      );
+      canvas.drawOval(islandRect.shift(const Offset(0, 8)), islandShadow);
+      canvas.drawOval(islandRect, sand);
       canvas.drawOval(
-        Rect.fromCenter(center: center, width: size.width * 0.54, height: 118),
-        sand,
+        islandRect.deflate(20 + (i % 3) * 2),
+        i % 8 == 0 ? park : meadow,
       );
-      canvas.drawOval(
-        Rect.fromCenter(center: center, width: size.width * 0.46, height: 88),
-        i % 10 == 0 ? park : island,
-      );
+      final Paint shore = Paint()
+        ..color = Colors.white.withValues(alpha: 0.28)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4;
+      canvas.drawOval(islandRect.deflate(4), shore);
     }
 
     final Path road = Path();
@@ -8276,34 +8465,77 @@ class WorldMapPainter extends CustomPainter {
         );
       }
     }
+    final Paint roadGlow = Paint()
+      ..color = Colors.black.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 36
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
     final Paint roadPaint = Paint()
-      ..color = const Color(0xff5d5142)
+      ..color = const Color(0xff574b3b)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 26
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = 30
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final Paint roadTop = Paint()
+      ..color = const Color(0xff7c705f)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 21
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
     final Paint dashPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.75)
+      ..color = Colors.white.withValues(alpha: 0.82)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round;
+    canvas.drawPath(road, roadGlow);
     canvas.drawPath(road, roadPaint);
-    canvas.drawPath(road, dashPaint);
+    canvas.drawPath(road, roadTop);
+    _drawDashedPath(canvas, road, dashPaint);
+
+    final Paint nodeGlow = Paint()
+      ..color = const Color(0xffffe15a).withValues(alpha: 0.16)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+    for (int i = 0; i < nodes.length; i += 3) {
+      canvas.drawCircle(nodes[i], 22, nodeGlow);
+    }
 
     final Paint wave = Paint()
-      ..color = Colors.white.withValues(alpha: 0.45)
+      ..color = Colors.white.withValues(alpha: 0.46)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 22; i++) {
-      final double x = size.width * (0.08 + (i % 4) * 0.25);
-      final double y = 36 + i * 130.0;
+    for (int i = 0; i < 26; i++) {
+      final double x = size.width * (0.07 + (i % 4) * 0.26);
+      final double y = 38 + i * 118.0;
       canvas.drawArc(
-        Rect.fromLTWH(x, y, 38, 13),
+        Rect.fromLTWH(x, y, 42, 14),
         0.1,
         math.pi * 0.8,
         false,
         wave,
       );
+    }
+
+    final Paint vignette = Paint()
+      ..shader = RadialGradient(
+        colors: <Color>[
+          Colors.transparent,
+          Colors.black.withValues(alpha: 0.22),
+        ],
+      ).createShader(rect);
+    canvas.drawRect(rect, vignette);
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final double end = math.min(distance + 18, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += 34;
+      }
     }
   }
 
