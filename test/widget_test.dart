@@ -136,7 +136,7 @@ void main() {
     expect(find.textContaining('Green Park'), findsOneWidget);
   });
 
-  testWidgets('new player play flow opens tutorial first', (
+  testWidgets('home play flow opens difficulty selection first', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const TrashTornadoApp());
@@ -147,9 +147,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
-    expect(find.textContaining('Tutorial 1/3'), findsOneWidget);
-    expect(find.text('Drag to recycle'), findsOneWidget);
-    expect(find.textContaining('Move the blue bottle'), findsOneWidget);
+    expect(find.text('GAME MODES'), findsOneWidget);
+    expect(find.text('Easy Mode'), findsOneWidget);
+    expect(find.text('Medium Mode'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Hard Mode'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Hard Mode'), findsOneWidget);
   });
 
   testWidgets('mode cards start the selected ruleset', (
@@ -181,6 +187,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 120));
 
     await tester.tap(find.text('PLAY'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.text('GAME MODES'), findsOneWidget);
+
+    await tester.tap(find.text('START').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
     expect(find.textContaining('Tutorial 1/3'), findsOneWidget);
