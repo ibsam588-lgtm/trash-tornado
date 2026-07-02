@@ -89,6 +89,8 @@ class GameArt {
   static const String sfxComplete = 'audio/sfx_complete.wav';
 }
 
+const IconData _pointsIcon = Icons.stars_rounded;
+
 void main() {
   final String? shot = Uri.base.queryParameters['shot'];
   final String? mode = Uri.base.queryParameters['mode'];
@@ -738,6 +740,22 @@ BinType? _binHitByPath(
   return null;
 }
 
+bool _fallingPathTouchesBin(
+  Size size,
+  List<Offset> path, {
+  required BinType bin,
+  double bottomInset = 0,
+}) {
+  if (path.isEmpty) {
+    return false;
+  }
+  final Rect? rect = _gameplayBinRects(size, bottomInset: bottomInset)[bin];
+  if (rect == null) {
+    return false;
+  }
+  return _pathTouchesRect(path, rect.inflate(8));
+}
+
 bool _pathTouchesRect(List<Offset> path, Rect? rect) {
   if (rect == null) {
     return false;
@@ -791,13 +809,12 @@ bool fallingPathAutoSortsForTesting({
   required List<Offset> path,
   double bottomInset = 0,
 }) {
-  return _binHitByPath(
-        size,
-        path,
-        bottomInset: bottomInset,
-        preferredBin: type.bin,
-      ) ==
-      type.bin;
+  return _fallingPathTouchesBin(
+    size,
+    path,
+    bin: type.bin,
+    bottomInset: bottomInset,
+  );
 }
 
 class SortBurst {
@@ -1337,7 +1354,7 @@ const List<UpgradeSpec> _upgrades = <UpgradeSpec>[
   UpgradeSpec(
     key: 'offline',
     name: 'Offline Earnings',
-    icon: Icons.paid_rounded,
+    icon: Icons.trending_up_rounded,
     baseCost: 500,
     color: Color(0xffffb12f),
   ),
@@ -1656,14 +1673,14 @@ class _GameShellState extends State<GameShell>
         }
 
         if (falling && _isSortableWaste(item)) {
-          final BinType? caughtBin = _binHitByPath(
+          final bool caughtByBin = _fallingPathTouchesBin(
             _playSize,
             <Offset>[previousPosition, item.position],
+            bin: item.type.bin,
             bottomInset: _playDockInset,
-            preferredBin: item.type.bin,
           );
-          if (caughtBin == item.type.bin) {
-            autoCaught.add(MapEntry<WasteItem, BinType>(item, caughtBin!));
+          if (caughtByBin) {
+            autoCaught.add(MapEntry<WasteItem, BinType>(item, item.type.bin));
             continue;
           }
         }
@@ -1962,9 +1979,18 @@ class _GameShellState extends State<GameShell>
     };
   }
 
+  void _startModeFlow(int mode) {
+    final int chosenMode = mode.clamp(0, _modes.length - 1);
+    if (_tutorialSeen) {
+      _startRun(mode: chosenMode);
+    } else {
+      _startTutorial(mode: chosenMode);
+    }
+  }
+
   void _startRun({int? mode, int? map}) {
-    final int chosenMode = mode ?? _selectedMode;
-    final int chosenMap = map ?? _selectedMap;
+    final int chosenMode = (mode ?? _selectedMode).clamp(0, _modes.length - 1);
+    final int chosenMap = (map ?? _selectedMap).clamp(0, _maps.length - 1);
     final int timeLevel = _upgradeLevels['time'] ?? 1;
     _playSfx(GameArt.sfxStart, volume: 0.72);
     _hapticMedium();
@@ -2500,10 +2526,12 @@ class _GameShellState extends State<GameShell>
     _syncMusic();
   }
 
-  void _startTutorial() {
+  void _startTutorial({int? mode}) {
+    final int chosenMode = (mode ?? _selectedMode).clamp(0, _modes.length - 1);
     _playUiSfx(GameArt.sfxStart, volume: 0.52);
     _hapticMedium();
     setState(() {
+      _selectedMode = chosenMode;
       _view = GameView.tutorial;
       _paused = false;
       _tutorialStep = 0;
@@ -3076,9 +3104,7 @@ class _GameShellState extends State<GameShell>
                                 icon: Icons.play_arrow_rounded,
                                 color: const Color(0xffffd22d),
                                 foreground: const Color(0xff2f1700),
-                                onPressed: () => _tutorialSeen
-                                    ? _startRun()
-                                    : _startTutorial(),
+                                onPressed: () => _showView(GameView.modes),
                               ),
                             ),
                           ),
@@ -4196,10 +4222,7 @@ class _GameShellState extends State<GameShell>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  _rewardChip(
-                    Icons.monetization_on_rounded,
-                    _formatNumber(_lastCoinsEarned),
-                  ),
+                  _rewardChip(_pointsIcon, _formatNumber(_lastCoinsEarned)),
                   const SizedBox(width: 28),
                   _rewardChip(Icons.diamond_rounded, '$_lastGemsEarned'),
                   const SizedBox(width: 28),
@@ -4587,7 +4610,7 @@ class _GameShellState extends State<GameShell>
           'Coin Pack',
           'Instant 1,000 cleanup coins.',
           0,
-          Icons.monetization_on_rounded,
+          _pointsIcon,
           const Color(0xffffc73d),
         ),
         _ShopEntry(
@@ -4723,11 +4746,7 @@ class _GameShellState extends State<GameShell>
                     }
                   })
                 : () => _buyShopItem(entry.name, entry.price),
-            icon: Icon(
-              virtualCurrency
-                  ? Icons.add_rounded
-                  : Icons.monetization_on_rounded,
-            ),
+            icon: Icon(virtualCurrency ? Icons.add_rounded : _pointsIcon),
             label: Text(virtualCurrency ? 'Add' : '${entry.price}'),
           ),
         ],
@@ -4851,7 +4870,7 @@ class _GameShellState extends State<GameShell>
                 onPressed: level >= 10 || _coins < cost
                     ? null
                     : () => _buyUpgrade(upgrade),
-                icon: const Icon(Icons.monetization_on_rounded),
+                icon: const Icon(_pointsIcon),
                 label: Text(level >= 10 ? 'MAX' : '$cost'),
               ),
             ],
@@ -4885,7 +4904,7 @@ class _GameShellState extends State<GameShell>
                 2 || 5 => Icons.diamond_rounded,
                 3 => Icons.bolt_rounded,
                 7 => Icons.inventory_2_rounded,
-                _ => Icons.monetization_on_rounded,
+                _ => _pointsIcon,
               };
               final String amount = switch (day) {
                 2 => '5',
@@ -5219,7 +5238,7 @@ class _GameShellState extends State<GameShell>
         ? Icons.check_rounded
         : unlocked
         ? Icons.cyclone_rounded
-        : Icons.monetization_on_rounded;
+        : _pointsIcon;
     final String label = selected
         ? 'Selected'
         : unlocked
@@ -5560,7 +5579,7 @@ class _GameShellState extends State<GameShell>
                               compact: true,
                               color: mode.colors.first,
                               foreground: Colors.white,
-                              onPressed: () => _startRun(mode: index),
+                              onPressed: () => _startModeFlow(index),
                             ),
                           ),
                         ],
@@ -5737,7 +5756,7 @@ class _GameShellState extends State<GameShell>
           ),
           const SizedBox(width: 8),
           _currencyChip(
-            Icons.monetization_on_rounded,
+            _pointsIcon,
             _coins.toString(),
             const Color(0xffffcc38),
           ),
@@ -5825,7 +5844,7 @@ class _GameShellState extends State<GameShell>
       ),
       _menuRailAction(
         iconAsset: GameArt.sideIconMissions,
-        label: 'Missions',
+        label: 'Modes',
         onTap: () => _showView(GameView.modes),
       ),
       _menuRailAction(
